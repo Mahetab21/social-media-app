@@ -8,6 +8,9 @@ import { rateLimit } from "express-rate-limit";
 import { AppError } from "./utils/classError";
 import userRouter from "./modules/users/user.controller";
 import connectionDB from "./DB/connectionDB";
+import { email, uuid } from "zod";
+import userModel from "./DB/model/user.model";
+import { UserRepository } from "./DB/repositories/user.repository";
 const app: express.Application = express();
 const port: string | number = process.env.PORT || 5000;
 const limiter = rateLimit({
@@ -34,6 +37,22 @@ const bootstrap = async () => {
       });
   });
   app.use("/users", userRouter);
+
+  async function test(){
+    // const user = new userModel({
+    //   fName:"test user",
+      // email:`${uuid()}mmm.@gmail.com`,
+      // password:"123",
+      // age:25,
+      // gender:"male"
+    //})
+    //await user.save({validateBeforeSave:true});
+    //  await user.updateOne({age:26})
+  const _userModel = new UserRepository(userModel)
+  const user= await _userModel.findOne({fName:"test user" , paranoid:true} , {age:27})
+  console.log(user);
+  }
+  test()
   
   await connectionDB();
   app.use("{/*demo}", (req: Request, res: Response, next: NextFunction) => {

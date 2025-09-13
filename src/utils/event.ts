@@ -8,3 +8,7 @@ eventEmitter.on("confirmEmail",async(data)=>{
     const {email,otp}=data;
     await sendEmail({to:email , subject:"confirm your email", html:emailTemplate(otp ,"Email Confirmation")})
 })
+eventEmitter.on("forgetPassword",async(data)=>{
+    const {email,otp}=data;
+    await sendEmail({to:email , subject:"forget password", html:emailTemplate(otp ,"forget Password")})
+})

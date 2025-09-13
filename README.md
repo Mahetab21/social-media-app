@@ -1,2 +1,3 @@
-# social-media-app  
-# social-media-app 
+# social-media-app
+
+A simple social media app (project scaffold).
