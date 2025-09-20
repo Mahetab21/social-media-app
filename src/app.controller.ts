@@ -38,7 +38,7 @@ const bootstrap = async () => {
   });
   app.use("/users", userRouter);
 
-  async function test(){
+  // async function test(){
     // const user = new userModel({
     //   fName:"test user",
       // email:`${uuid()}mmm.@gmail.com`,
@@ -48,11 +48,11 @@ const bootstrap = async () => {
     //})
     //await user.save({validateBeforeSave:true});
     //  await user.updateOne({age:26})
-  const _userModel = new UserRepository(userModel)
-  const user= await _userModel.findOne({fName:"test user" , paranoid:true} , {age:27})
-  console.log(user);
-  }
-  test()
+  // const _userModel = new UserRepository(userModel)
+  // const user= await _userModel.findOne({fName:"test user" , paranoid:true} , {age:27})
+  // console.log(user);
+  // }
+  // test()
   
   await connectionDB();
   app.use("{/*demo}", (req: Request, res: Response, next: NextFunction) => {

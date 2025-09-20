@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from "uuid";
 import revokeTokenModel, { IRevokeToken } from "../../DB/model/revokeToken.model";
 import { RevokeTokenRepository } from "../../DB/repositories/revokeToken.repository";
 import { OAuth2Client, TokenPayload } from "google-auth-library";
+import { uploadFile, uploadLargeFile ,uploadFiles,createUploadFilePreSignedUrl } from "../../utils/s3.config";
 class UserService{
     // private _userModel : Model<IUser> = userModel;
     private _userModel = new UserRepository(userModel)
@@ -194,7 +195,37 @@ resetPassword = async(req:Request,res:Response,next:NextFunction)=>{
     await this._userModel.updateOne({email:user?.email}, {password:hash, $unset:{otp:""}});
     return res.status(200).json({message:"Password reset successfully"});
 }
+//========================upload image===============
+uploadImage = async (req:Request,res:Response,next:NextFunction)=>{
+    //===upload file===  
+    // const Key= await uploadFile({
+    //     file:req.file!,
+    //     path:`users/${req.user?._id}`,
+    // })
 
+    //===upload large file===
+    const Key= await uploadLargeFile({
+        file:req.file!,
+        path:`users/${req.user?._id}`,
+    })
+
+    //===upload multiple files===
+    // const Key= await uploadFiles({
+    //     files:req.files as Express.Multer.File[],
+    //     path:`users/${req.user?._id}`,
+    // })
+    return res.status(200).json({message:"Image uploaded successfully",Key});
+}
+//========================upload images (createUploadFilePreSignedUrl)===============
+uploadImages = async (req:Request,res:Response,next:NextFunction)=>{
+    const{ originalname, ContentType }= req.body;
+    const url= await createUploadFilePreSignedUrl({
+        originalname,
+        ContentType,
+        path:`users/${req.user?._id}`,
+    })
+    return res.status(200).json({message:"Image uploaded successfully",url});
+}
 }
 
 export default new UserService();
