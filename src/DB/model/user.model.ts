@@ -33,7 +33,20 @@ export interface IUser{
     createdAt:Date,
     updatedAt:Date,
     image?:string,
-    provider:ProviderType
+    provider:ProviderType,
+    profileImage?:string,
+    tempProfileImage?:string,
+    coverImage?:string,
+    deletedBy?:Types.ObjectId,
+    restoredAt?:Date,
+    restoredBy?:Types.ObjectId,
+    friends?:Types.ObjectId[],
+    emailChangeRequested?: Date,
+    newEmail:string,
+    twoFactorEnabled?: boolean,
+    twoFactorOtp?: string,
+    twoFactorOtpExpiry?: Date,
+
 }
 const userSchema = new mongoose.Schema<IUser>({
     fName:{type: String,required: true,minLength: 3,maxLength: 20,trim: true},
@@ -56,7 +69,20 @@ const userSchema = new mongoose.Schema<IUser>({
     changeCredentials:{type: Date},
     role:{type: String,enum: RoleType,default: RoleType.user},
     image:{type: String},
-    provider:{type: String,enum: ProviderType,default: ProviderType.system}
+    provider:{type: String,enum: ProviderType,default: ProviderType.system},
+    profileImage:{type: String},
+    tempProfileImage:{type: String},
+    coverImage:{type: String},
+    deletedBy:{ type :Types.ObjectId,ref:"User"},
+    restoredAt:{type:Date},
+    restoredBy:{type:Types.ObjectId,ref:"User"},
+    friends:[{type:Types.ObjectId,ref:"User"}],
+    emailChangeRequested:{ type: Date},
+    newEmail:{type: String,unique: true},
+    twoFactorEnabled: { type: Boolean, default: false },
+    twoFactorOtp: { type: String },
+    twoFactorOtpExpiry: { type: Date },
+
 },{
     timestamps: true,
     strictQuery:true,

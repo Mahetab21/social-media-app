@@ -13,5 +13,20 @@ dist/
 build/
 
 # OS files
+# Node modules and logs (common defaults — preserve any existing project-specific ignores)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore environment files and the config directory
+.env
+config/
+
+# Build output
+dist/
+build/
+
+# OS files
 .DS_Store
 Thumbs.db
