@@ -17,6 +17,9 @@ import { createGetFilePreSignedUrl, deleteFile, getFile,deleteFiles,listFiles,de
 import { ListObjectsV2CommandOutput } from "@aws-sdk/client-s3";
 import path from "node:path";
 import postRouter from "./modules/post/post.controller";
+
+import { Server } from "socket.io";
+
 const writePipeLine = promisify(pipeline);
 const app: express.Application = express();
 const port: string | number = process.env.PORT || 5000;
@@ -136,8 +139,20 @@ app.get("/upload/*path", async(req:Request,res:Response,next:NextFunction)=>{
       .status((err.statusCode as unknown as number) || 500)
       .json({ error: err.message, stack: err.stack });
   });
-  app.listen(port, () => {
+ const server= app.listen(port, () => {
     console.log(`Server is running on port ${port}...`);
   });
+  const io = new Server(server,{
+    cors:{
+      origin:"*"
+    }
+  });
+  io.on("connection",(socket)=>{
+    console.log(socket.id);
+    socket.on("disconnect",()=>{
+      console.log("client disconnected");
+    })
+  })
+    
 };
 export default bootstrap;

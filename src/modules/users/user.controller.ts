@@ -5,6 +5,8 @@ import * as UV from "./user.validation";
 import { Authentication } from "../../middleware/Authentication";
 import { TokenType } from "../../utils/token";
 import { fileValidation, multerCloud } from "../../middleware/multer.cloud";
+import { authorization } from "../../middleware/authorization";
+import { RoleType } from "../../DB/model/user.model";
 const userRouter = Router();
 
 userRouter.post("/signUp", Validation(UV.signUpSchema), UC.signUp);
@@ -34,4 +36,14 @@ userRouter.post("/twoFactorSetup",Authentication(TokenType.access),UC.enableTwoF
 userRouter.post("/confirmTwoFactor",Authentication(TokenType.access),Validation(UV.confirmTwoFactorSchema),UC.confirmEnableTwoFactor);
 userRouter.post("/logIn",Validation(UV.loginSchema),UC.login);
 userRouter.post("/confirmTwoFactorLogin",Validation(UV.confirmTwoFactorLoginSchema),UC.confirmLoginTwoFactor);
+userRouter.get("/dashboard",Authentication(),authorization([RoleType.admin, RoleType.superAdmin]),UC.dashBoard);
+userRouter.patch("/chandeRole/:userId",Authentication(),authorization([RoleType.admin, RoleType.superAdmin]),UC.changeRole)
+userRouter.post("/friendRequest/:userId",Authentication(),UC.sendFriendRequest)
+userRouter.patch("/acceptRequest/:requestId", Authentication(),UC.acceptFriendRequest)
+
+userRouter.patch("/blockUser/:userId", Authentication(),Validation(UV.blockUserSchema),UC.blockUser);
+userRouter.delete("/deleteFriendRequest/:friendRequestId",Authentication(),UC.deleteFriendRequest);
+userRouter.delete("/unFriend/:friendId",Authentication(),UC.unFriend);
+
+
 export default userRouter;

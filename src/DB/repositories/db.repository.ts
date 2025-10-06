@@ -14,10 +14,15 @@ export abstract class BbRepository<TDocument>{
          Promise<HydratedDocument<TDocument> | null> {
         return this.model.findOne(filter,select);
     }
-    async find(
+    async find({
+        filter,
+        select,
+        options
+    }:{
         filter:RootFilterQuery<TDocument>,
         select?:ProjectionType<TDocument>,
-        options?:QueryOptions<TDocument> 
+        options?:QueryOptions<TDocument>
+     }
     ):Promise<HydratedDocument<TDocument>[]>{
         return this.model.find(filter,select,options);
     }
@@ -39,5 +44,48 @@ export abstract class BbRepository<TDocument>{
          Promise<DeleteResult>{
         return await this.model.deleteOne(filter);
     }
+    async paginate({
+        filter,
+        query,
+        select,
+        options
+    }:{
+        filter:RootFilterQuery<TDocument>,
+        query:{page:number,limit:number},
+        select?:ProjectionType<TDocument>,
+        options?:QueryOptions<TDocument>
+     }
+    ){
+        let {page , limit} =  query;
+        if(page<0) page=1;
+        page=page*1 || 1
+        const skip = (page-1)*limit;
+        const finalOptions={
+            ...options,
+            skip,
+            limit
+        }
+        const count= await this.model.countDocuments({deletedAt:{$exists:false}})
+        const numberOfPages= Math.ceil(count/limit);
+        const docs = await this.model.find(filter,select,finalOptions);
+        return {docs,currentPage: page, countDocument:count,numberOfPages}
     }
-    
+    async findOneAndDelete(
+        filter: RootFilterQuery<TDocument>,
+        options?: QueryOptions<TDocument> 
+    ): Promise<HydratedDocument<TDocument> | null> {
+        return await this.model.findOneAndDelete(filter, options);
+    }
+    async deleteMany(
+        filter: RootFilterQuery<TDocument>
+    ): Promise<{ deletedCount?: number }> {
+        return await this.model.deleteMany(filter);
+    }
+    async findById(
+        id: string,
+        select?: ProjectionType<TDocument>,
+        options?: QueryOptions<TDocument>
+    ): Promise<HydratedDocument<TDocument> | null> {
+        return await this.model.findById(id, select, options);
+    }
+    }

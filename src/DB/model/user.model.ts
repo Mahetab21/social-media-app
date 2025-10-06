@@ -8,7 +8,8 @@ export enum GenderType{
 }
 export enum RoleType{
     admin="admin",
-    user="user"
+    user="user",
+    superAdmin="superAdmin"
 }
 export enum ProviderType{
     google="google",
@@ -47,6 +48,8 @@ export interface IUser{
     twoFactorOtp?: string,
     twoFactorOtpExpiry?: Date,
 
+    blockedUsers?: Types.ObjectId[]
+
 }
 const userSchema = new mongoose.Schema<IUser>({
     fName:{type: String,required: true,minLength: 3,maxLength: 20,trim: true},
@@ -83,6 +86,7 @@ const userSchema = new mongoose.Schema<IUser>({
     twoFactorOtp: { type: String },
     twoFactorOtpExpiry: { type: Date },
 
+    blockedUsers:[{  type: mongoose.Schema.Types.ObjectId,ref: 'User'}]
 },{
     timestamps: true,
     strictQuery:true,

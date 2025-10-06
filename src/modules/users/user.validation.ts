@@ -168,6 +168,16 @@ export const confirmTwoFactorLoginSchema={
     otp: z.string().regex(/^\d{6}$/).trim(),
   })
 }
+export const blockUserSchema = {
+  params: z.strictObject({
+      userId: z.string().refine((value) => {
+        return Types.ObjectId.isValid(value);
+      }, {
+        message: "Invalid userId",
+        path: ["userId"],
+      }),
+  })
+}
 export type signUpSchemaType = z.infer<typeof signUpSchema.body>;
 export type confirmEmailSchemaType = z.infer<typeof confirmEmailSchema.body>;
 export type signInSchemaType = z.infer<typeof signInSchema.body>;
@@ -185,3 +195,4 @@ export type confirmNewEmailSchemaType = z.infer<typeof confirmNewEmailSchema.bod
 export type confirmTwoFactorSchemaType = z.infer<typeof confirmTwoFactorSchema.body>;
 export type loginSchemaType = z.infer<typeof loginSchema.body>;
 export type confirmTwoFactorLoginSchemaType = z.infer<typeof confirmTwoFactorLoginSchema.body>;
+export type blockUserSchemaType = z.infer<typeof blockUserSchema.params>;
