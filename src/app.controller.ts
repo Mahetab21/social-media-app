@@ -8,17 +8,13 @@ import { rateLimit } from "express-rate-limit";
 import { AppError } from "./utils/classError";
 import userRouter from "./modules/users/user.controller";
 import connectionDB from "./DB/connectionDB";
-import { email, uuid } from "zod";
-import userModel from "./DB/model/user.model";
-import { UserRepository } from "./DB/repositories/user.repository";
 import { promisify } from "node:util";
 import {pipeline} from "node:stream";
 import { createGetFilePreSignedUrl, deleteFile, getFile,deleteFiles,listFiles,deleteFolderByPrefix } from "./utils/s3.config";
 import { ListObjectsV2CommandOutput } from "@aws-sdk/client-s3";
-import path from "node:path";
 import postRouter from "./modules/post/post.controller";
+import {initializationIo} from "./modules/gateway/gateway"
 
-import { Server } from "socket.io";
 
 const writePipeLine = promisify(pipeline);
 const app: express.Application = express();
@@ -106,6 +102,7 @@ app.get("/upload/*path", async(req:Request,res:Response,next:NextFunction)=>{
     Key
   })
   const stream = result.Body as NodeJS.ReadableStream;
+  res.set("cross-origin-resource-policy","cross-origin");
   res.setHeader("Content-Type", result?.ContentType!);
   if(downLoadName){
     res.setHeader("Content-Disposition", `attachment; filename="${downLoadName || path.join("/").split("/").pop()}"`);
@@ -139,20 +136,10 @@ app.get("/upload/*path", async(req:Request,res:Response,next:NextFunction)=>{
       .status((err.statusCode as unknown as number) || 500)
       .json({ error: err.message, stack: err.stack });
   });
- const server= app.listen(port, () => {
+ const httpServer= app.listen(port, () => {
     console.log(`Server is running on port ${port}...`);
   });
-  const io = new Server(server,{
-    cors:{
-      origin:"*"
-    }
-  });
-  io.on("connection",(socket)=>{
-    console.log(socket.id);
-    socket.on("disconnect",()=>{
-      console.log("client disconnected");
-    })
-  })
-    
+
+  initializationIo(httpServer)
 };
 export default bootstrap;

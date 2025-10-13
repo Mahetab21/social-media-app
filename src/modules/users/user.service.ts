@@ -50,6 +50,7 @@ import { PostRepository } from "../../DB/repositories/post.repository";
 import postModel from "../../DB/model/post.model";
 import { FriendRequestRepository } from "../../DB/repositories/friendRequest.repository";
 import FriendRequestModel from "../../DB/model/friendRequest.model";
+import { populate } from "dotenv";
 class UserService {
   // private _userModel : Model<IUser> = userModel;
   private _userModel = new UserRepository(userModel);
@@ -205,8 +206,13 @@ class UserService {
       user,
     });
   };
-  //========================get Profile================
+  //=======================get Profile================
   getProfile = async (req: Request, res: Response, next: NextFunction) => {
+    const user = await this._userModel.find({
+      filter: { _id: req?.user?._id },
+      options: { populate: [{ path: "friends", select: "name email" }] },
+    });
+
     return res
       .status(200)
       .json({ message: "User get profile successfully", user: req.user });
@@ -705,6 +711,9 @@ class UserService {
     if (!user) {
       throw new AppError("user not found", 404);
     }
+    if(req.user?._id == userId){
+      throw new AppError("you can not send request to yourself", 400);
+    }
     const checkRequest = await this._friendRequestModel.findOne({
       createdBy: { $in: [req.user?._id, userId] },
       sendTo: { $in: [req.user?._id, userId] },
@@ -727,9 +736,12 @@ class UserService {
       {
         _id: requestId,
         sendTo: req?.user?._id,
+        accepted: { $exists: false },
       },
       {
         accepted: new Date(),
+      },{
+        new:true
       }
     );
     if (!checkRequest) {

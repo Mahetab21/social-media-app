@@ -8,7 +8,7 @@ import { fileValidation, multerCloud } from "../../middleware/multer.cloud";
 import commentRouter from "../comment/comment.controller";
 const postRouter = Router({});
 
-postRouter.use("/:postId/comments{/:commentId/reply}", commentRouter);
+postRouter.use("/:postId/comments", commentRouter);
 
 postRouter.post(
   "/createPost",
