@@ -50,14 +50,20 @@ import { PostRepository } from "../../DB/repositories/post.repository";
 import postModel from "../../DB/model/post.model";
 import { FriendRequestRepository } from "../../DB/repositories/friendRequest.repository";
 import FriendRequestModel from "../../DB/model/friendRequest.model";
-import { populate } from "dotenv";
+import { ChatRepository } from "../../DB/repositories/chat.repository";
+import ChatModel from "../../DB/model/chat.model";
+import { GraphQLError } from "graphql";
+import { AuthenticationGraphQl } from "../../middleware/Authentication";
+import { authorizationGQL } from "../../middleware/authorization";
+import { ValidationGQL } from "../../middleware/validation";
+import {getOneUserSchemaType} from "./user.validation";
 class UserService {
   // private _userModel : Model<IUser> = userModel;
   private _userModel = new UserRepository(userModel);
   private _revokeToken = new RevokeTokenRepository(revokeTokenModel);
   private _postModel = new PostRepository(postModel);
   private _friendRequestModel = new FriendRequestRepository(FriendRequestModel);
-
+  private _chatModel = new ChatRepository(ChatModel)
   constructor() {}
   //=====================signUp================
   signUp = async (req: Request, res: Response, next: NextFunction) => {
@@ -212,10 +218,15 @@ class UserService {
       filter: { _id: req?.user?._id },
       options: { populate: [{ path: "friends", select: "name email" }] },
     });
-
+    const groups= await this._chatModel.find({
+      filter:{
+        participants:{$in:[req?.user?._id]},
+        group:{$exists:true}
+        }
+    })
     return res
       .status(200)
-      .json({ message: "User get profile successfully", user: req.user });
+      .json({ message: "User get profile successfully", user: req.user, groups });
   };
   //========================log Out==================
   logOut = async (req: Request, res: Response, next: NextFunction) => {
@@ -881,6 +892,46 @@ class UserService {
       success: true,
     });
 
+  }
+  
+//*******=====================GraphQl=======================*******
+
+  //--------------Get One User-------------------
+  getOneUser =async (parent:any, args:{id:string},context:any)=>{
+
+    const {user} = await AuthenticationGraphQl(context.req.headers.authorization)
+    await authorizationGQL({accessRoles:[RoleType.admin , RoleType.superAdmin], role: user.role || RoleType.user})
+    await ValidationGQL<typeof args>(getOneUserSchemaType , args)
+    const userExists = await this._userModel.findOne({ _id: user._id });
+    if(!userExists){
+      throw new GraphQLError("user not found",{
+        extensions:{
+          message:"user not found",
+          statuscode:404
+        }
+      })
+    }
+    return user;
+  }
+  //---------------Get All User------------------
+  getAllUser= async (parent:any, args:any)=>{
+   return await this._userModel.find({filter:{}});
+  }
+  //----------------Create User-----------------
+  createUser= async (parent:any, args:any)=>{
+      const {fName,lName,email,password,gender , age} = args;
+      const user = await this._userModel.findOne({ email });
+      if(user){
+      throw new GraphQLError("email aleardy exist",{
+          extensions:{
+          message:"email aleardy exist",
+          statuscode:400
+        }
+      })
+    }
+    const hashPassword = await Hash(password);
+    const newUser= await this._userModel.create({fName,lName,email,password:hashPassword,gender , age})
+    return newUser;
   }
 }
 export default new UserService();

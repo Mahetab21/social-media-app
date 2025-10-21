@@ -1,6 +1,7 @@
 import z, { email } from "zod";
 import { GenderType } from "../../DB/model/user.model";
 import { Types } from "mongoose";
+import { generalRules } from "../../utils/generalRules";
 export enum flagType {
   all = "all",
   current = "current",
@@ -178,6 +179,11 @@ export const blockUserSchema = {
       }),
   })
 }
+//===schema of getOneUserSchemaType of graphql validation======
+export const getOneUserSchemaType = z.strictObject({
+  id:generalRules.id
+})
+
 export type signUpSchemaType = z.infer<typeof signUpSchema.body>;
 export type confirmEmailSchemaType = z.infer<typeof confirmEmailSchema.body>;
 export type signInSchemaType = z.infer<typeof signInSchema.body>;

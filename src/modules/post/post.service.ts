@@ -19,6 +19,8 @@ import {
 import { UpdateQuery } from "mongoose";
 import { eventEmitter } from "../../utils/event";
 import { emailTemplate } from "../../service/email.temp";
+import { GraphQLError } from "graphql";
+import { getIo } from "../../modules/gateway/gateway";
 class PostService {
   private _userModel = new UserRepository(userModel);
   private _postModel = new PostRepository(postModel);
@@ -309,5 +311,93 @@ class PostService {
     }
     return res.status(200).json({ message: "Post fetched successfully", post });
   };
+  //********============Graph Ql================************
+  //------------get posts GQL---------------
+  getPostsGQL = async (parent: any, args: any) => {
+    let { page = 1, limit = 5 } = args as unknown as {
+      page?: number;
+      limit?: number;
+    };
+    const { currentPage, docs, countDocument, numberOfPages } =
+      await this._postModel.paginate({
+        filter: {},
+        query: { page, limit },
+      });
+    return {
+      posts: docs,
+      currentPage,
+      numberOfPages,
+      countDocument,
+    };
+  };
+  //----------like post GQL-------------
+  likePostGQL = async (parent: any, args: any, context: any) => {
+    const { postId, action } = args;
+    const user = context?.req?.user || context?.user;
+    if (!user || !user._id) {
+      throw new GraphQLError("unauthorized", {
+        extensions: {
+          message: "unauthorized",
+          statuscode: 401,
+        },
+      });
+    }
+    let updateQuery: UpdateQuery<IPost> = {
+      $addToSet: { likes: user._id },
+    };
+    if (action === "unlike") {
+      updateQuery = { $pull: { likes: user._id } };
+    }
+    const post = await this._postModel.findOneAndUpdate(
+      {
+        _id: postId,
+        $or: [
+          { availability: AvailabilityEnum.public },
+          { availability: AvailabilityEnum.private, createdBy: user._id },
+          {
+            availability: AvailabilityEnum.friends,
+            createdBy: { $in: [...(user?.friends || []), user._id] },
+          },
+        ],
+      },
+      updateQuery,
+      { new: true }
+    );
+    if (!post) {
+      throw new GraphQLError("Failed to like post", {
+        extensions: {
+          message: "failed to like ",
+          statuscode: 400,
+        },
+      });
+    }
+
+    // emit socket event so frontend updates in real-time
+    try {
+      const io = getIo();
+      const payload = {
+        postId: post._id,
+        action,
+        liker: {
+          _id: user._id,
+          userName: user.userName || user.username || "",
+          profilePicture: user.profilePicture || null,
+        },
+        likesCount: Array.isArray(post.likes) ? post.likes.length : 0,
+      };
+      // emit to a room for the post so all viewers of the post get update
+      io.to(`post:${String(post._id)}`).emit("postLike", payload);
+      // also notify the post owner (if not the same user)
+      const ownerId = (post as any).createdBy?._id || (post as any).createdBy;
+      if (ownerId && String(ownerId) !== String(user._id)) {
+        io.to(`user:${String(ownerId)}`).emit("postLike", payload);
+      }
+    } catch (e) {
+      // don't fail the operation if socket emission fails
+      console.error("socket emit failed", e);
+    }
+    return `post ${action} successfully`;
+  };
 }
+
 export default new PostService();

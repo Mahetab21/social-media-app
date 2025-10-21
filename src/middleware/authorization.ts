@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { RoleType } from "../DB/model/user.model";
+import { GraphQLError } from "graphql";
 
 export const authorization = (accessRoles: RoleType[] = []) => {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -23,3 +24,14 @@ export const authorization = (accessRoles: RoleType[] = []) => {
     return next();
   };
 };
+export const authorizationGQL = async({accessRoles =[] , role} : {accessRoles : RoleType[], role:RoleType})=>{
+  if(!accessRoles.includes(role)){
+    throw new GraphQLError( "You are not authorized to access this resource",{
+      extensions:{
+        message:"You are not authorized to access this resource",
+        statuscode:401
+      }
+    })
+  }
+  return true
+}

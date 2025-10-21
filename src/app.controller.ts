@@ -14,7 +14,13 @@ import { createGetFilePreSignedUrl, deleteFile, getFile,deleteFiles,listFiles,de
 import { ListObjectsV2CommandOutput } from "@aws-sdk/client-s3";
 import postRouter from "./modules/post/post.controller";
 import {initializationIo} from "./modules/gateway/gateway"
-
+import chatRouter from "./modules/chat/chat.controller";
+import { graphql, GraphQLEnumType, GraphQLID, GraphQLList, GraphQLNonNull, GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql';
+import { createHandler } from 'graphql-http/lib/use/express';
+import { id } from "zod/v4/locales";
+import { GenderType } from "./DB/model/user.model";
+import { schemaGQL } from "./modules/graphQl/schema.gql";
+import { Authentication } from "./middleware/Authentication";
 
 const writePipeLine = promisify(pipeline);
 const app: express.Application = express();
@@ -29,11 +35,14 @@ const limiter = rateLimit({
   statusCode: 429,
 });
 
+
 const bootstrap = async () => {
   app.use(express.json());
   app.use(cors());
   app.use(helmet());
   app.use(limiter);
+
+app.all('/graphql', Authentication(),createHandler({ schema:schemaGQL ,context :(req)=>({req})}));
 
   app.get("/", (req: Request, res: Response, next: NextFunction) => {
     return res
@@ -111,6 +120,7 @@ app.get("/upload/*path", async(req:Request,res:Response,next:NextFunction)=>{
 })  
   app.use("/users", userRouter);
   app.use("/posts", postRouter);
+  app.use("/chat", chatRouter);
   // async function test(){
     // const user = new userModel({
     //   fName:"test user",
