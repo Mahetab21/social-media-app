@@ -81,7 +81,7 @@ const userSchema = new mongoose.Schema<IUser>({
     restoredBy:{type:Types.ObjectId,ref:"User"},
     friends:[{type:Types.ObjectId,ref:"User"}],
     emailChangeRequested:{ type: Date},
-    newEmail:{type: String,unique: true},
+    newEmail:{type: String},
     twoFactorEnabled: { type: Boolean, default: false },
     twoFactorOtp: { type: String },
     twoFactorOtpExpiry: { type: Date },
