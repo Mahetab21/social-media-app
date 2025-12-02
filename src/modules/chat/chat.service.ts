@@ -7,7 +7,7 @@ import { UserRepository } from "../../DB/repositories/user.repository";
 import userModel from "../../DB/model/user.model";
 import connectionSockets from "../gateway/gateway";
 import { Types } from "mongoose";
-import { uuidv4 } from "zod";
+import { v4 as uuidv4 } from "uuid";
 import { deleteFile, uploadFile } from "../../utils/s3.config";
 export class ChatService {
   constructor() {}

@@ -3,7 +3,7 @@ import { UserRepository } from "../../DB/repositories/user.repository";
 import postModel, { AvailabilityEnum, IPost } from "../../DB/model/post.model";
 import userModel from "../../DB/model/user.model";
 import { Request, Response, NextFunction } from "express";
-import { uuidv4 } from "zod";
+import { v4 as uuidv4 } from "uuid";
 import { deleteFiles, uploadFiles } from "../../utils/s3.config";
 import { AppError } from "../../utils/classError";
 import {
@@ -104,7 +104,7 @@ class PostService {
     const post = await this._postModel.findOne({
       _id: postId,
       createdBy: req.user?._id,
-      paranoid: true,
+      paranoid: true, // not soft deleted
     });
     if (!post) {
       throw new AppError("Post not found", 404);
@@ -193,32 +193,38 @@ class PostService {
       .json({ message: "Tag notification emails sent successfully" });
   };
   //====================get all post=====================
-  getPosts = async (req: Request, res: Response, next: NextFunction) => {
-    // let {page=1 , limit=5} =req.query as unknown as {page?:number,limit?:number};
-    // const {currentPage, docs,countDocument,numberOfPages} = await this._postModel.paginate({ filter: {} , query :{page,limit}});
-
-    const posts = await this._postModel.find({
-      filter: {},
-      options: {
-        populate: [
-          {
-            path: "comment",
-            match: {
-              commentId: { $exists: false },
-            },
-            populate: {
-              path: "replies",
-            },
+getPosts = async (req: Request, res: Response, next: NextFunction) => {
+  const posts = await this._postModel.find({
+    filter: {
+      deletedAt: { $exists: false }, // Exclude soft-deleted posts
+      $or: [
+        { availability: AvailabilityEnum.public },
+        { availability: AvailabilityEnum.private, createdBy: req.user?._id },
+        {
+          availability: AvailabilityEnum.friends,
+          createdBy: { $in: [...(req.user?.friends || []), req.user?._id] },
+        },
+      ],
+    },
+    options: {
+      populate: [
+        {
+          path: "comments", 
+          match: {
+            commentId: { $exists: false },// get the basic comment
           },
-        ],
-      },
-    });
+          populate: {
+            path: "replies", // get reply 
+          },
+        },
+      ],
+    },
+  });
 
-    //return res.status(200).json({ message: "Posts fetched successfully",currentPage, numberOfPages, countDocument ,posts: docs });
-    return res
-      .status(200)
-      .json({ message: "Posts fetched successfully", posts });
-  };
+  return res
+    .status(200)
+    .json({ message: "Posts fetched successfully", posts });
+};
   //=====================freeze post====================
   freezePost = async (req: Request, res: Response, next: NextFunction) => {
     const { postId }: freezePostSchemaType = req.params as freezePostSchemaType;
@@ -236,7 +242,7 @@ class PostService {
         $set: {
           isFrozen: true,
           frozenAt: new Date(),
-          freozenBy: userId,
+          frozenBy: userId,
         },
       }
     );
@@ -260,7 +266,7 @@ class PostService {
       await deleteFiles({ urls: post.attachments });
     }
 
-    const deleted = await this._postModel.findOneAndDelete({ _id: postId });
+    const deleted = await this._postModel.findOneAndDelete({ _id: postId, createdBy: req.user?._id});
     if (!deleted) {
       throw new AppError("Failed to delete post", 500);
     }
@@ -273,8 +279,12 @@ class PostService {
     const posts = await this._postModel.find({
       filter: {
         _id: postId,
-        availability: AvailabilityEnum.public,
         deletedAt: { $exists: false },
+        $or: [
+          { availability: AvailabilityEnum.public },
+          { availability: AvailabilityEnum.private, createdBy: req.user?._id },
+          { availability: AvailabilityEnum.friends, createdBy: { $in: [...(req.user?.friends || []), req.user?._id] } },
+        ],
       },
       options: {
         populate: [
@@ -283,7 +293,7 @@ class PostService {
             select: "userName profilePicture",
           },
           {
-            path: "comment",
+            path: "comments",
             match: {
               commentId: { $exists: false },
             },

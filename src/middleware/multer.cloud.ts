@@ -2,7 +2,7 @@ import multer, { FileFilterCallback } from "multer";
 import { Request } from "express";
 import { AppError } from "../utils/classError";
 import os from "os";
-import { uuidv4 } from "zod";
+import { v4 as uuidv4 } from "uuid";
 
 
 export  enum storageType {

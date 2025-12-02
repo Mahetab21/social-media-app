@@ -1,6 +1,6 @@
 import {DeleteObjectCommand, DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, ObjectCannedACL, PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
 import { storageType } from "../middleware/multer.cloud";
-import { uuidv4 } from "zod";
+import { v4 as uuidv4 } from "uuid";
 import { createReadStream } from "fs";
 import { AppError } from "./classError";
 import { Upload } from "@aws-sdk/lib-storage";

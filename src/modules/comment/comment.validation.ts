@@ -11,7 +11,7 @@ export const createCommentSchema = {
     body: z.strictObject({
        content: z.string().min(2).max(5000).optional(),
        attachments: z.array(generalRules.file).max(2).optional(),
-       assetFolderId: z.string().optional(),
+       assestFolderId: z.string().optional(),
         tags:z.array(generalRules.id).refine((value)=>{
             return new Set(value).size===value.length
         },{
@@ -68,7 +68,7 @@ export const updateCommentSchema={
     body: z.strictObject({
         content: z.string().min(2).max(5000).optional(),
         attachments: z.array(generalRules.file).max(2).optional(),
-        assetFolderId: z.string().optional(),
+        assestFolderId: z.string().optional(),
         tags: z.array(generalRules.id).refine((value) => {
             return new Set(value).size === value.length
         }, {

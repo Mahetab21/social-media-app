@@ -27,7 +27,6 @@ import userModel, {
   ProviderType,
 } from "../../DB/model/user.model";
 import { UserRepository } from "../../DB/repositories/user.repository";
-import { th } from "zod/v4/locales";
 import { AppError } from "../../utils/classError";
 import { Compare, Hash } from "../../utils/hash";
 import { generateOtp, sendEmail } from "../../service/sendEmail";
@@ -56,14 +55,14 @@ import { GraphQLError } from "graphql";
 import { AuthenticationGraphQl } from "../../middleware/Authentication";
 import { authorizationGQL } from "../../middleware/authorization";
 import { ValidationGQL } from "../../middleware/validation";
-import {getOneUserSchemaType} from "./user.validation";
+import { getOneUserSchemaType } from "./user.validation";
 class UserService {
   // private _userModel : Model<IUser> = userModel;
   private _userModel = new UserRepository(userModel);
   private _revokeToken = new RevokeTokenRepository(revokeTokenModel);
   private _postModel = new PostRepository(postModel);
   private _friendRequestModel = new FriendRequestRepository(FriendRequestModel);
-  private _chatModel = new ChatRepository(ChatModel)
+  private _chatModel = new ChatRepository(ChatModel);
   constructor() {}
   //=====================signUp================
   signUp = async (req: Request, res: Response, next: NextFunction) => {
@@ -214,19 +213,30 @@ class UserService {
   };
   //=======================get Profile================
   getProfile = async (req: Request, res: Response, next: NextFunction) => {
-    const user = await this._userModel.find({
-      filter: { _id: req?.user?._id },
-      options: { populate: [{ path: "friends", select: "name email" }] },
+    const user = await this._userModel.findOne(
+      { _id: req?.user?._id },
+      "-password -otp"
+    );
+
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    await user.populate({
+      path: "friends",
+      select: "fName lName email profileImage",
     });
-    const groups= await this._chatModel.find({
-      filter:{
-        participants:{$in:[req?.user?._id]},
-        group:{$exists:true}
-        }
-    })
+
+    const groups = await this._chatModel.find({
+      filter: {
+        participants: { $in: [req?.user?._id] },
+        group: { $exists: true },
+      },
+    });
+
     return res
       .status(200)
-      .json({ message: "User get profile successfully", user: req.user, groups });
+      .json({ message: "User get profile successfully", user, groups });
   };
   //========================log Out==================
   logOut = async (req: Request, res: Response, next: NextFunction) => {
@@ -555,11 +565,9 @@ class UserService {
       }
     );
     eventEmitter.emit("twoFactorSetup", { email: req.user?.email, otp });
-    return res
-      .status(200)
-      .json({
-        message: "OTP sent to your email, please confirm to enable 2FA",
-      });
+    return res.status(200).json({
+      message: "OTP sent to your email, please confirm to enable 2FA",
+    });
   };
   //========================confirm enable 2F==================
   confirmEnableTwoFactor = async (
@@ -624,16 +632,18 @@ class UserService {
 
     eventEmitter.emit("twoFactorLogin", { email: user.email, otp });
 
-    return res
-      .status(200)
-      .json({
-        message: "OTP sent to your email, please confirm login",
-        twoFactor: true,
-        userId: user._id,
-      });
+    return res.status(200).json({
+      message: "OTP sent to your email, please confirm login",
+      twoFactor: true,
+      userId: user._id,
+    });
   };
   //==========================confirm login===========================
-  confirmLoginTwoFactor = async (req: Request,res: Response,next: NextFunction) => {
+  confirmLoginTwoFactor = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
     const { email, otp }: confirmTwoFactorLoginSchemaType =
       req.body as confirmTwoFactorLoginSchemaType;
     if (!email || !otp) throw new AppError("Email and OTP are required", 400);
@@ -688,6 +698,32 @@ class UserService {
       this._userModel.find({ filter: {} }),
       this._postModel.find({ filter: {} }),
     ]);
+
+    if (result.some((r) => r.status === "rejected")) {
+      const errorMessages = result
+        .filter((r) => r.status === "rejected")
+        .map((r) => (r as PromiseRejectedResult).reason.message)
+        .join(", ");
+      throw new AppError(
+        `Failed to retrieve dashboard data: ${errorMessages}`,
+        500
+      );
+    }
+
+    const users = (result[0] as PromiseFulfilledResult<any>).value;
+    const posts = (result[1] as PromiseFulfilledResult<any>).value;
+
+    const dashboardData = {
+      totalUsers: users.length,
+      totalPosts: posts.length,
+      users,
+      posts,
+    };
+
+    return res.status(200).json({
+      message: "Dashboard data retrieved successfully",
+      data: dashboardData,
+    });
   };
   //=======================change Role========================
   changeRole = async (req: Request, res: Response, next: NextFunction) => {
@@ -716,13 +752,17 @@ class UserService {
     return res.status(200).json({ message: "Role Changed success", user });
   };
   //======================friend request====================
-  sendFriendRequest = async ( req: Request,res: Response,next: NextFunction) => {
+  sendFriendRequest = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
     const { userId } = req.params;
     const user = await this._userModel.findOne({ _id: userId });
     if (!user) {
       throw new AppError("user not found", 404);
     }
-    if(req.user?._id == userId){
+    if (req.user?._id == userId) {
       throw new AppError("you can not send request to yourself", 400);
     }
     const checkRequest = await this._friendRequestModel.findOne({
@@ -741,7 +781,11 @@ class UserService {
       .json({ message: "friend request sent success", request });
   };
   //======================accept request===================
-  acceptFriendRequest = async ( req: Request,res: Response,next: NextFunction) => {
+  acceptFriendRequest = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
     const { requestId } = req.params;
     const checkRequest = await this._friendRequestModel.findOneAndUpdate(
       {
@@ -751,8 +795,9 @@ class UserService {
       },
       {
         accepted: new Date(),
-      },{
-        new:true
+      },
+      {
+        new: true,
       }
     );
     if (!checkRequest) {
@@ -818,7 +863,11 @@ class UserService {
     });
   };
   //=======================delete friend request==========
-  deleteFriendRequest = async ( req: Request, res: Response, next: NextFunction) => {
+  deleteFriendRequest = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) => {
     const { friendRequestId } = req.params;
     const userId = req.user?._id;
 
@@ -829,7 +878,9 @@ class UserService {
       throw new AppError("User not authenticated", 401);
     }
 
-    const friendRequest = await this._friendRequestModel.findById(friendRequestId);
+    const friendRequest = await this._friendRequestModel.findById(
+      friendRequestId
+    );
     if (!friendRequest) {
       throw new AppError("friend request not found", 404);
     }
@@ -854,84 +905,93 @@ class UserService {
   };
   //=======================un friend=================
   unFriend = async (req: Request, res: Response, next: NextFunction) => {
-    const {friendId} = req.params;
+    const { friendId } = req.params;
     const userId = req.user?._id;
-    if(!userId){
+    if (!userId) {
       throw new AppError("User not authenticated", 401);
     }
-    if(!friendId){
+    if (!friendId) {
       throw new AppError("Friend ID is required", 400);
     }
-   const user = await this._userModel.findOne({ 
+    const user = await this._userModel.findOne({
       _id: userId,
-      friends: friendId
+      friends: friendId,
     });
     if (!user) {
       throw new AppError("Friend not found in your friends list", 404);
     }
 
-
-  await Promise.all([
-    this._userModel.updateOne(
-      { _id: userId },
-      { $pull: { friends: friendId } }
-    ),
-    this._userModel.updateOne(
-      { _id: friendId },
-      { $pull: { friends: userId } }
-    )
-  ]);
+    await Promise.all([
+      this._userModel.updateOne(
+        { _id: userId },
+        { $pull: { friends: friendId } }
+      ),
+      this._userModel.updateOne(
+        { _id: friendId },
+        { $pull: { friends: userId } }
+      ),
+    ]);
     await this._friendRequestModel.deleteMany({
-    $or: [
-      { createdBy: userId, sendTo: friendId, accepted: { $exists: true } },
-      { createdBy: friendId, sendTo: userId, accepted: { $exists: true } }
-    ]
-  });
+      $or: [
+        { createdBy: userId, sendTo: friendId, accepted: { $exists: true } },
+        { createdBy: friendId, sendTo: userId, accepted: { $exists: true } },
+      ],
+    });
     return res.status(200).json({
       message: "Unfriended successfully",
       success: true,
     });
+  };
 
-  }
-  
-//*******=====================GraphQl=======================*******
+  //*******=====================GraphQl=======================*******
 
   //--------------Get One User-------------------
-  getOneUser =async (parent:any, args:{id:string},context:any)=>{
-
-    const {user} = await AuthenticationGraphQl(context.req.headers.authorization)
-    await authorizationGQL({accessRoles:[RoleType.admin , RoleType.superAdmin], role: user.role || RoleType.user})
-    await ValidationGQL<typeof args>(getOneUserSchemaType , args)
+  getOneUser = async (parent: any, args: { id: string }, context: any) => {
+    const { user } = await AuthenticationGraphQl(
+      context.req.headers.authorization
+    );
+    await authorizationGQL({
+      accessRoles: [RoleType.admin, RoleType.superAdmin],
+      role: user.role || RoleType.user,
+    });
+    await ValidationGQL<typeof args>(getOneUserSchemaType, args);
     const userExists = await this._userModel.findOne({ _id: user._id });
-    if(!userExists){
-      throw new GraphQLError("user not found",{
-        extensions:{
-          message:"user not found",
-          statuscode:404
-        }
-      })
+    if (!userExists) {
+      throw new GraphQLError("user not found", {
+        extensions: {
+          message: "user not found",
+          statuscode: 404,
+        },
+      });
     }
     return user;
-  }
+  };
   //---------------Get All User------------------
-  getAllUser= async (parent:any, args:any)=>{
-   return await this._userModel.find({filter:{}});
-  }
+  getAllUser = async (parent: any, args: any) => {
+    return await this._userModel.find({ filter: {} });
+  };
   //----------------Create User-----------------
-  createUser= async (parent:any, args:any)=>{
-      const {fName,lName,email,password,gender , age} = args;
-      const user = await this._userModel.findOne({ email });
-      if(user){
-      throw new GraphQLError("email aleardy exist",{
-          extensions:{
-          message:"email aleardy exist",
-          statuscode:400
-        }
-      })
+  createUser = async (parent: any, args: any) => {
+    const { fName, lName, email, password, gender, age } = args;
+    const user = await this._userModel.findOne({ email });
+    if (user) {
+      throw new GraphQLError("email aleardy exist", {
+        extensions: {
+          message: "email aleardy exist",
+          statuscode: 400,
+        },
+      });
     }
     const hashPassword = await Hash(password);
-    const newUser= await this._userModel.create({fName,lName,email,password:hashPassword,gender , age})
+    const newUser = await this._userModel.create({
+      fName,
+      lName,
+      email,
+      password: hashPassword,
+      gender,
+      age,
+    });
     return newUser;
-  }
+  };
 }
 export default new UserService();
