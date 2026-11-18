@@ -1,6 +1,6 @@
 import { compare,hash } from "bcrypt";
 
-export const Hash=async(plainText:string, saltRound:number = Number(process.env.SALT_ROUND))=>{
+export const Hash=async(plainText:string, saltRound:number = Number(process.env.SALT_ROUND || 12))=>{
     return hash(plainText,saltRound)
 }
 export const Compare =async(plainText:string, cipherText:string) => {

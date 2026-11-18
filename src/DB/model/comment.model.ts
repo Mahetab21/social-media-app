@@ -18,17 +18,17 @@ export interface IComment{
     postId?: Types.ObjectId,       // Reference to post when this is a direct comment on a post
     commentId?: Types.ObjectId,    // Reference to parent comment when this is a reply
 
-    likes?:Schema.Types.ObjectId[],
-    tags?:Schema.Types.ObjectId[],
+    likes?:Types.ObjectId[],
+    tags?:Types.ObjectId[],
 
     deletedAt?:Date,
-    deletedBy?:Schema.Types.ObjectId,
+    deletedBy?:Types.ObjectId,
     restoredAt?:Date,
-    restoredBy?:Schema.Types.ObjectId,
+    restoredBy?:Types.ObjectId,
 
     isFrozen?: boolean,
     frozenAt?: Date,
-    frozenBy?: Schema.Types.ObjectId,
+    frozenBy?: Types.ObjectId,
 }
 
 export const commentSchema = new Schema<IComment>({
@@ -37,7 +37,7 @@ export const commentSchema = new Schema<IComment>({
     assestFolderId:{type:String},
 
     createdBy:{type:Schema.Types.ObjectId,ref:"User",required:true},
-    refId:{type:mongoose.Schema.Types.ObjectId,refPath:"onModel",required:true},
+    refId:{type:mongoose.Schema.Types.ObjectId,ref: function(this: any) { return this.onModel === OnModelEnum.post ? "Post" : "Comment"; },required:true},
     onModel:{type:String,required:true,enum:OnModelEnum},
     
     postId:{type:Schema.Types.ObjectId,ref:"Post"},     // Reference to post when commenting on a post
@@ -94,5 +94,5 @@ commentSchema.virtual("replies",{
     localField:"_id",
     foreignField:"commentId"
 })
-const CommentModel = models.Comment || model("Comment",commentSchema);
+const CommentModel = model<IComment>("Comment",commentSchema);
 export default CommentModel;

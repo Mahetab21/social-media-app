@@ -1,6 +1,8 @@
 import { HydratedDocument, Model, ProjectionType, RootFilterQuery, UpdateQuery, UpdateWriteOpResult ,QueryOptions, DeleteResult} from "mongoose";
 
 
+import { pagination } from "../../utils/pagination";
+
 export abstract class BbRepository<TDocument>{
     constructor(protected readonly model:Model <TDocument>){ }
 
@@ -30,14 +32,14 @@ export abstract class BbRepository<TDocument>{
         filter:RootFilterQuery<TDocument>,
         updated:UpdateQuery<TDocument>): 
         Promise<UpdateWriteOpResult>{
-        return await this.model.updateOne(filter,updated);
+        return await this.model.updateOne(filter,updated,{runValidators:true});
     }
     async findOneAndUpdate(
         filter:RootFilterQuery<TDocument>,
         updated:UpdateQuery<TDocument>,
         options:QueryOptions<TDocument>| null = {new:true}
     ): Promise<HydratedDocument<TDocument> | null>{
-        return await this.model.findOneAndUpdate(filter,updated,options)
+        return await this.model.findOneAndUpdate(filter,updated,{new:true,...options,runValidators:true})
     }
     async deleteOne(
         filter:RootFilterQuery<TDocument>):
@@ -56,16 +58,13 @@ export abstract class BbRepository<TDocument>{
         options?:QueryOptions<TDocument>
      }
     ){
-        let {page , limit} =  query;
-        if(page<0) page=1;
-        page=page*1 || 1
-        const skip = (page-1)*limit;
+        const {page,limit,skip} = pagination(query);
         const finalOptions={
             ...options,
             skip,
             limit
         }
-        const count= await this.model.countDocuments({deletedAt:{$exists:false}})
+        const count= await this.model.countDocuments(filter)
         const numberOfPages= Math.ceil(count/limit);
         const docs = await this.model.find(filter,select,finalOptions);
         return {docs,currentPage: page, countDocument:count,numberOfPages}

@@ -2,7 +2,7 @@ import multer, { FileFilterCallback } from "multer";
 import { Request } from "express";
 import { AppError } from "../utils/classError";
 import os from "os";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID as uuidv4 } from "node:crypto";
 
 
 export  enum storageType {
@@ -40,6 +40,6 @@ export const multerCloud =(
            return cb(new AppError('Invalid file type',400));
         }
     };
-    const upload = multer({ storage, limits: { fileSize: mazSize * 1024 * 1024 }, fileFilter });
+    const upload = multer({ storage, limits: { fileSize: mazSize * 1024 * 1024, files: 2, fields: 20, fieldSize: 16384 }, fileFilter });
     return upload;
 }

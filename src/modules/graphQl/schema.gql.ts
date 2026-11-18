@@ -1,44 +1,18 @@
-
-import { graphql, GraphQLEnumType, GraphQLID, GraphQLList, GraphQLNonNull, GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql';
-import { GenderType } from '../../DB/model/user.model';
-import { AppError } from '../../utils/classError';
+import { GraphQLError, GraphQLObjectType, GraphQLSchema } from 'graphql';
 import UserFields from '../users/graphql/user.fields';
 import PostFields from '../post/graphQl/post.fields';
-const users =[
-  {id:"1",name:"John Doe",email:"john@example.com",gender:GenderType.male,password:"12345"},
-  {id:"2",name:"Jane Smith",email:"jane@example.com",gender:GenderType.female,password:"67890"}
-]
-const userType = new GraphQLObjectType({
-  name:"User",
-  fields:{
-    id:{type: new GraphQLNonNull(GraphQLID)},
-    name:{type: new GraphQLNonNull(GraphQLString)},
-    email:{type: new GraphQLNonNull(GraphQLString)},
-    password:{type: new GraphQLNonNull(GraphQLString)},
-    gender:{
-      type: new GraphQLNonNull(new GraphQLEnumType({
-            name:"Gender",
-            values:{
-              male:{value:GenderType.male},
-              female:{value:GenderType.female}
-            }
-          }))}
-  }
-})
-
+import { AppError } from '../../utils/classError';
+function safe(fields:any) {
+ for(const field of Object.values(fields) as any[]) {
+  const resolve = field.resolve;
+  field.resolve = async (...args:any[]) => {
+   try { return await resolve(...args); }
+   catch(error:any) { throw new GraphQLError(error instanceof AppError ? error.message : 'Request could not be completed', {extensions:{code:error instanceof AppError ? String(error.statusCode) : 'BAD_REQUEST'}}); }
+  };
+ }
+ return fields;
+}
 export const schemaGQL = new GraphQLSchema({
-  query: new GraphQLObjectType({
-    name: 'RootQueryType',
-    fields: {
-      ...UserFields.query(),
-      ...PostFields.query()
-    },
-  }),
-  mutation: new GraphQLObjectType({
-    name:"mutation",
-    fields:{
-      ...UserFields.mutation(),
-      ...PostFields.mutation()
-    }
-  })
+ query:new GraphQLObjectType({name:'Query',fields:safe({...UserFields.query(),...PostFields.query()})}),
+ mutation:new GraphQLObjectType({name:'Mutation',fields:safe({...UserFields.mutation(),...PostFields.mutation()})})
 });
