@@ -1,0 +1,24 @@
+name: Prepare dependency update
+on:
+  push:
+    branches: [codex/portfolio-review]
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --package-lock-only --ignore-scripts --no-fund && npm update --package-lock-only --ignore-scripts --no-fund
+      - name: Report candidate manifests
+        run: |
+          npm audit --json > dependency-audit.json || true
+          node - <<'NODE'
+          const fs = require('node:fs'), zlib = require('node:zlib');
+          console.log('AUDIT_SUMMARY=' + fs.readFileSync('dependency-audit.json','utf8').replace(/\n/g,''));
+          console.log('CANDIDATE_GZIP_BASE64=' + zlib.gzipSync(JSON.stringify({package:fs.readFileSync('package.json','utf8'),lock:fs.readFileSync('package-lock.json','utf8')})).toString('base64'));
+          NODE
