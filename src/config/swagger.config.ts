@@ -1,1 +1,2990 @@
-export const swaggerSpec = {openapi:'3.0.3',info:{title:'Social Media API',version:'1.1.0'},paths:{}};
+export const swaggerSpec = {
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Social Media API",
+    "version": "1.1.0",
+    "description": "Backend portfolio project by Mahitab Ayman. REST, GraphQL and authenticated Socket.IO. All codes are emailed; no authenticator/TOTP app is implemented."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current API server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "Authorization": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Bearer <user token> or Admin <administrator token>. The refresh route requires the refresh token."
+      }
+    }
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Service health",
+        "tags": [
+          "Service"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/users/signUp": {
+      "post": {
+        "summary": "Create a customer account and email a confirmation code",
+        "tags": [
+          "users"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fName": {
+                    "type": "string"
+                  },
+                  "lName": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 72
+                  },
+                  "cPassword": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 72
+                  },
+                  "age": {
+                    "type": "integer",
+                    "minimum": 18,
+                    "maximum": 60
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "male",
+                      "female"
+                    ]
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "fName",
+                  "lName",
+                  "email",
+                  "password",
+                  "cPassword",
+                  "age",
+                  "gender"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/resendConfirmation": {
+      "post": {
+        "summary": "Resend an email confirmation code",
+        "tags": [
+          "users"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/confirmEmail": {
+      "patch": {
+        "summary": "Confirm email with a single-use code",
+        "tags": [
+          "users"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "otp": {
+                    "type": "string",
+                    "pattern": "^[0-9]{6}$"
+                  }
+                },
+                "required": [
+                  "email",
+                  "otp"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/signIn": {
+      "post": {
+        "summary": "Sign in; twoFactor=true requires confirmTwoFactorLogin",
+        "tags": [
+          "users"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/logIn": {
+      "post": {
+        "summary": "Sign in; twoFactor=true requires confirmTwoFactorLogin",
+        "tags": [
+          "users"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/logInWithGmail": {
+      "post": {
+        "summary": "Sign in with a verified Google ID token",
+        "tags": [
+          "users"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "idToken": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "idToken"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/getProfile": {
+      "get": {
+        "summary": "Get your profile and group summaries",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/users/logOut": {
+      "post": {
+        "summary": "Revoke current or all sessions",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "flag": {
+                    "type": "string",
+                    "enum": [
+                      "current",
+                      "all"
+                    ],
+                    "default": "current"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/refreshToken": {
+      "get": {
+        "summary": "Rotate a refresh token; send the refresh token in Authorization",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/users/forgetPassword": {
+      "patch": {
+        "summary": "Request a password-reset code",
+        "tags": [
+          "users"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/resetPassword": {
+      "patch": {
+        "summary": "Reset password and invalidate existing sessions",
+        "tags": [
+          "users"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "otp": {
+                    "type": "string",
+                    "pattern": "^[0-9]{6}$"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 72
+                  },
+                  "cPassword": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 72
+                  }
+                },
+                "required": [
+                  "email",
+                  "otp",
+                  "password",
+                  "cPassword"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/updatePassword": {
+      "patch": {
+        "summary": "Change password and invalidate existing sessions",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currentPassword": {
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 72
+                  },
+                  "cNewPassword": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 72
+                  }
+                },
+                "required": [
+                  "currentPassword",
+                  "newPassword",
+                  "cNewPassword"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/updateBasicInfo": {
+      "patch": {
+        "summary": "Update at least one profile field",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fName": {
+                    "type": "string"
+                  },
+                  "lName": {
+                    "type": "string"
+                  },
+                  "age": {
+                    "type": "integer",
+                    "minimum": 18,
+                    "maximum": 60
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "male",
+                      "female"
+                    ]
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/updateEmail": {
+      "patch": {
+        "summary": "Send a confirmation code to a new email",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "newEmail": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "newEmail",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/confirmNewEmail": {
+      "patch": {
+        "summary": "Confirm new email and invalidate sessions",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "otp": {
+                    "type": "string",
+                    "pattern": "^[0-9]{6}$"
+                  }
+                },
+                "required": [
+                  "otp"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/twoFactorSetup": {
+      "post": {
+        "summary": "Request an email step-up setup code",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/users/confirmTwoFactor": {
+      "post": {
+        "summary": "Enable extra email verification for sign-in",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "otp": {
+                    "type": "string",
+                    "pattern": "^[0-9]{6}$"
+                  }
+                },
+                "required": [
+                  "otp"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/confirmTwoFactorLogin": {
+      "post": {
+        "summary": "Complete a login challenge",
+        "tags": [
+          "users"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "otp": {
+                    "type": "string",
+                    "pattern": "^[0-9]{6}$"
+                  }
+                },
+                "required": [
+                  "email",
+                  "otp"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/freezeAccount": {
+      "patch": {
+        "summary": "Freeze your own account",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/users/freezeAccount/{userId}": {
+      "patch": {
+        "summary": "Freeze an eligible account (administrator)",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/users/unFreezeAccount/{userId}": {
+      "patch": {
+        "summary": "Restore an eligible frozen account (administrator)",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/users/deleteAccount/{userId}": {
+      "delete": {
+        "summary": "Delete your own account or an eligible managed account",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/users/dashboard": {
+      "get": {
+        "summary": "Administrator account and post counts",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/users/chandeRole/{userId}": {
+      "patch": {
+        "summary": "Change user/admin role (superAdmin only; legacy route spelling)",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "user",
+                      "admin"
+                    ]
+                  }
+                },
+                "required": [
+                  "role"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/friendRequest/{userId}": {
+      "post": {
+        "summary": "Send a friend request",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/users/acceptRequest/{requestId}": {
+      "patch": {
+        "summary": "Accept a pending incoming request",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "requestId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/users/blockUser/{userId}": {
+      "patch": {
+        "summary": "Block a user and remove friendship and pending requests",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/users/deleteFriendRequest/{friendRequestId}": {
+      "delete": {
+        "summary": "Cancel or decline a pending request",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "friendRequestId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/users/unFriend/{friendId}": {
+      "delete": {
+        "summary": "Remove a friendship on both accounts",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "friendId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/users/uploadImage": {
+      "post": {
+        "summary": "Upload a profile image (up to 5 MiB)",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/uploadImages": {
+      "post": {
+        "summary": "Request one signed PUT upload; confirm it afterward",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "originalname": {
+                    "type": "string"
+                  },
+                  "ContentType": {
+                    "type": "string",
+                    "enum": [
+                      "image/jpeg",
+                      "image/png"
+                    ]
+                  }
+                },
+                "required": [
+                  "originalname",
+                  "ContentType"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/confirmProfileImage": {
+      "post": {
+        "summary": "Verify the pending S3 object and attach it to the profile",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        }
+      }
+    },
+    "/posts/createPost": {
+      "post": {
+        "summary": "Create a post; provide content or attachments",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 5000
+                  },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-fA-F0-9]{24}$"
+                    }
+                  },
+                  "availability": {
+                    "type": "string",
+                    "enum": [
+                      "public",
+                      "private",
+                      "friends"
+                    ]
+                  },
+                  "allowComments": {
+                    "type": "string",
+                    "enum": [
+                      "allow",
+                      "deny"
+                    ]
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 5000
+                  },
+                  "tags": {
+                    "type": "string",
+                    "description": "JSON array of user IDs"
+                  },
+                  "availability": {
+                    "type": "string",
+                    "enum": [
+                      "public",
+                      "private",
+                      "friends"
+                    ]
+                  },
+                  "allowComments": {
+                    "type": "string",
+                    "enum": [
+                      "allow",
+                      "deny"
+                    ]
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "maxItems": 2,
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/posts/getPost": {
+      "get": {
+        "summary": "List visible posts",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ]
+      }
+    },
+    "/posts/getPostById/{postId}": {
+      "get": {
+        "summary": "Read one visible post",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/posts/{postId}": {
+      "patch": {
+        "summary": "Like or unlike a visible post",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "like",
+                "unlike"
+              ],
+              "default": "like"
+            }
+          }
+        ]
+      }
+    },
+    "/posts/update/{postId}": {
+      "patch": {
+        "summary": "Update your unfrozen post",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 5000
+                  },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-fA-F0-9]{24}$"
+                    }
+                  },
+                  "availability": {
+                    "type": "string",
+                    "enum": [
+                      "public",
+                      "private",
+                      "friends"
+                    ]
+                  },
+                  "allowComments": {
+                    "type": "string",
+                    "enum": [
+                      "allow",
+                      "deny"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/posts/freeze/{postId}": {
+      "patch": {
+        "summary": "Freeze your own post",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/posts/hard-delete/{postId}": {
+      "delete": {
+        "summary": "Delete your own post",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/posts/{postId}/send-tag-emails": {
+      "post": {
+        "summary": "Notify tags who are allowed to view the post",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/posts/{postId}/comments": {
+      "post": {
+        "summary": "Create a top-level comment (onModel=post)",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 5000
+                  },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-fA-F0-9]{24}$"
+                    }
+                  },
+                  "onModel": {
+                    "type": "string",
+                    "enum": [
+                      "post",
+                      "Comment"
+                    ]
+                  }
+                },
+                "required": [
+                  "onModel"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List visible top-level comments",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ]
+      }
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "post": {
+        "summary": "Reply to a comment (onModel=Comment)",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          },
+          {
+            "in": "path",
+            "name": "commentId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 5000
+                  },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-fA-F0-9]{24}$"
+                    }
+                  },
+                  "onModel": {
+                    "type": "string",
+                    "enum": [
+                      "post",
+                      "Comment"
+                    ]
+                  }
+                },
+                "required": [
+                  "onModel"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Read a visible comment and a page of replies",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          },
+          {
+            "in": "path",
+            "name": "commentId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ]
+      },
+      "patch": {
+        "summary": "Update your own comment",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          },
+          {
+            "in": "path",
+            "name": "commentId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 5000
+                  },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-fA-F0-9]{24}$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete your own comment",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          },
+          {
+            "in": "path",
+            "name": "commentId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/posts/{postId}/comments/freeze/{commentId}": {
+      "patch": {
+        "summary": "Freeze your own comment",
+        "tags": [
+          "posts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          },
+          {
+            "in": "path",
+            "name": "commentId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          }
+        ]
+      }
+    },
+    "/users/{userId}/chat": {
+      "get": {
+        "summary": "Read direct chat history, oldest messages first",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ]
+      }
+    },
+    "/chat/group": {
+      "post": {
+        "summary": "Create a group with existing friends",
+        "tags": [
+          "chat"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "group": {
+                    "type": "string"
+                  },
+                  "participants": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-fA-F0-9]{24}$"
+                    }
+                  }
+                },
+                "required": [
+                  "group",
+                  "participants"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/group/{groupId}": {
+      "get": {
+        "summary": "Read a group you belong to, oldest messages first",
+        "tags": [
+          "chat"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groupId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{24}$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ]
+      }
+    },
+    "/graphql": {
+      "post": {
+        "summary": "Authenticated GraphQL endpoint",
+        "tags": [
+          "graphql"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Not permitted"
+          },
+          "404": {
+            "description": "Resource not found or not visible"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "429": {
+            "description": "Rate limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  },
+                  "variables": {
+                    "type": "object"
+                  },
+                  "operationName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+};

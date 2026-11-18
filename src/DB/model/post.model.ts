@@ -32,7 +32,7 @@ export interface IPost{
 }
 
 export const postSchema = new Schema<IPost>({
-    content:{type:String,minLength:3,maxLength:5000,required:function(){return this.attachments?.length==0}},
+    content:{type:String,minLength:3,maxLength:5000,required:function(this: IPost): boolean {return !this.attachments?.length}},
     attachments:[String],
     assestFolderId:{type:String},
 

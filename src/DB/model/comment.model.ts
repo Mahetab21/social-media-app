@@ -32,7 +32,7 @@ export interface IComment{
 }
 
 export const commentSchema = new Schema<IComment>({
-    content:{type:String,minLength:3,maxLength:5000,required:function(){return this.attachments?.length==0}},
+    content:{type:String,minLength:3,maxLength:5000,required:function(this: IComment): boolean {return !this.attachments?.length}},
     attachments:[String],
     assestFolderId:{type:String},
 

@@ -29,7 +29,7 @@ class PostService {
     if (!post) throw new AppError('Post not found', 404);
     return post;
   }
-  likePost = async (req: Request, res: Response) => res.json({ post: await this.like(req.params.postId!, String(req.query.action), req.user!) });
+  likePost = async (req: Request, res: Response) => res.json({ post: await this.like(String(req.params.postId), String(req.query.action), req.user!) });
   updatePost = async (req: Request, res: Response) => {
     const post = await postModel.findOne({ _id: req.params.postId, createdBy: req.user!._id, isFrozen: { $ne: true } });
     if (!post) throw new AppError('Post not found', 404);
