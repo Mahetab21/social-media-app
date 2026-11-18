@@ -1,4 +1,4 @@
-import { Schema ,model, models } from "mongoose";
+import { Schema ,model, models, Types } from "mongoose";
 export enum AllowCommentEnum{
     allow="allow",
     deny="deny",
@@ -13,26 +13,26 @@ export interface IPost{
     attachments?:string[],
     assestFolderId?:string,
 
-    createdBy:Schema.Types.ObjectId,
-    likes?:Schema.Types.ObjectId[],
-    tags?:Schema.Types.ObjectId[],
+    createdBy:Types.ObjectId,
+    likes?:Types.ObjectId[],
+    tags?:Types.ObjectId[],
 
     allowComments:AllowCommentEnum,
     availability:AvailabilityEnum,
     deletedAt?:Date,
-    deletedBy?:Schema.Types.ObjectId,
+    deletedBy?:Types.ObjectId,
     restoredAt?:Date,
-    restoredBy?:Schema.Types.ObjectId,
+    restoredBy?:Types.ObjectId,
 
     isFrozen?: boolean,                 
     frozenAt?: Date,                     
-    frozenBy?: Schema.Types.ObjectId,    
+    frozenBy?: Types.ObjectId,    
     unfrozenAt?: Date,                   
-    unfrozenBy?: Schema.Types.ObjectId,  
+    unfrozenBy?: Types.ObjectId,  
 }
 
 export const postSchema = new Schema<IPost>({
-    content:{type:String,minLength:3,maxLength:5000,required:function(){return this.attachments?.length==0}},
+    content:{type:String,minLength:3,maxLength:5000,required:function(this: IPost): boolean {return !this.attachments?.length}},
     attachments:[String],
     assestFolderId:{type:String},
 
@@ -78,10 +78,10 @@ postSchema.pre(["find","findOne"],function(next){
 })
 
 
-postSchema.virtual("comment",{
+postSchema.virtual("comments",{
     ref:"Comment",
     localField:"_id",
     foreignField:"postId",
 })
-const PostModel = models.Post || model("Post",postSchema);
+const PostModel = model<IPost>("Post",postSchema);
 export default PostModel;

@@ -17,6 +17,7 @@ export  interface IChat {
 
     //-----OVM-----
     group?:string,
+    pairKey?:string,
     groupImage?:string,
     roomId?:string,
 
@@ -25,7 +26,7 @@ export  interface IChat {
 
 }
 const messageSchema = new Schema<IMessage>({
-    content:{type:String,required:true},
+    content:{type:String,required:true,maxlength:1000},
     createdBy:{type:mongoose.Schema.Types.ObjectId,ref:"User",required:true},
 },{
     timestamps: true
@@ -38,11 +39,12 @@ const chatSchema = new Schema<IChat>({
         default: [] 
     },
     group:{type:String},
+    pairKey:{type:String,unique:true,sparse:true},
     groupImage:{type:String},
     roomId:{type:String},
     
 },{
     timestamps:true
 })
-const ChatModel = models.Chat || model("Chat",chatSchema);
+const ChatModel = model<IChat>("Chat",chatSchema);
 export default ChatModel;

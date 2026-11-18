@@ -1,140 +1,18 @@
-import { Types } from "mongoose";
-import * as z from "zod";
-import { AllowCommentEnum, AvailabilityEnum } from "../../DB/model/post.model";
-import { generalRules } from "../../utils/generalRules";
-export enum ActionEnum {
-  like = "like",
-  unlike = "unlike",
-}
-
-export const createPostSchema = {
-  body: z
-    .strictObject({
-      content: z.string().min(2).max(5000).optional(),
-      attachments: z.array(generalRules.file).max(2).optional(),
-
-      assetFolderId: z.string().optional(),
-
-      allowComments: z
-        .enum(AllowCommentEnum)
-        .default(AllowCommentEnum.allow)
-        .optional(),
-      availability: z
-        .enum(AvailabilityEnum)
-        .default(AvailabilityEnum.public)
-        .optional(),
-
-      tags: z
-        .array(generalRules.id)
-        .refine(
-          (value) => {
-            return new Set(value).size === value.length;
-          },
-          {
-            message: "Duplicate tags are not allowed",
-          }
-        )
-        .optional(),
-    })
-    .superRefine((data, ctx) => {
-      if (!data?.content && !data.attachments?.length) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["content"],
-          message: "Either content or attachments is required",
-        });
-      }
-    }),
+import * as z from 'zod';
+import { AllowCommentEnum, AvailabilityEnum } from '../../DB/model/post.model';
+import { generalRules } from '../../utils/generalRules';
+export enum ActionEnum { like = 'like', unlike = 'unlike' }
+const params = z.object({ postId: generalRules.id });
+const fields = {
+  content: z.string().trim().min(3).max(5000).optional(),
+  attachments: z.array(generalRules.file).max(2).optional(),
+  allowComments: z.enum(AllowCommentEnum).optional(), availability: z.enum(AvailabilityEnum).optional(),
+  tags: z.array(generalRules.id).max(20).refine(ids => new Set(ids).size === ids.length, 'Duplicate tags').optional(),
 };
-export const likePostSchema = {
-  params: z.strictObject({
-    postId: generalRules.id,
-  }),
-  query: z.strictObject({
-    action: z.enum(ActionEnum).default(ActionEnum.like),
-  }),
-};
-export const updatePostSchema = {
-  params: z.strictObject({
-    postId: generalRules.id,
-  }),
-  body: z
-    .strictObject({
-      content: z.string().min(2).max(5000).optional(),
-      attachments: z.array(generalRules.file).max(2).optional(),
-
-      assetFolderId: z.string().optional(),
-
-      allowComments: z
-        .enum(AllowCommentEnum)
-        .default(AllowCommentEnum.allow)
-        .optional(),
-      availability: z
-        .enum(AvailabilityEnum)
-        .default(AvailabilityEnum.public)
-        .optional(),
-
-      tags: z
-        .array(generalRules.id)
-        .refine(
-          (value) => {
-            return new Set(value).size === value.length;
-          },
-          {
-            message: "Duplicate tags are not allowed",
-          }
-        )
-        .optional(),
-    })
-    .superRefine((data, ctx) => {
-      if (!Object.values(data).length) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Either content or attachments is required",
-        });
-      }
-    }),
-};
-export const sendTagEmailSchema = {
-  params: z.strictObject({
-    postId: generalRules.id,
-  }),
-};
-export const freezePostSchema = {
-  params: z.strictObject({
-      postId: generalRules.id,
-    }).required().refine((value) => {
-        return value?.postId ? Types.ObjectId.isValid(value.postId) : true;
-      },
-      {
-        message: "Invalid postId",
-        path: ["postId"],
-      }
-    ),
-};
-export const hardDeleteSchema = {
-  params: z.strictObject({
-    postId: generalRules.id,
-    }).required().refine((value) => {
-        return value?.postId ? Types.ObjectId.isValid(value.postId) : true;
-      },
-      {
-        message: "Invalid postId",
-        path: ["postId"],
-      }
-    ),
-
-}
-export const getPostByIdSchema = {
-  params: z.strictObject({   
-    postId: generalRules.id,
-  })
-}
-export type likePostSchemaType = z.infer<typeof likePostSchema.params>;
-export type likePostQueryType = z.infer<typeof likePostSchema.query>;
-export type updatePostSchemaType = z.infer<typeof updatePostSchema.params>;
-export type updatePostBodyType = z.infer<typeof updatePostSchema.body>;
-export type sendTagEmailSchemaType = z.infer<typeof sendTagEmailSchema.params>;
-export type freezePostSchemaType = z.infer<typeof freezePostSchema.params>;
-export type hardDeleteSchemaType = z.infer<typeof hardDeleteSchema.params>;
-export type getPostByIdSchemaType = z.infer<typeof getPostByIdSchema.params>;
+export const createPostSchema = { body: z.strictObject(fields).refine(x => !!x.content || !!x.attachments?.length, 'Content or an attachment is required') };
+export const updatePostSchema = { params, body: z.strictObject(fields).refine(x => Object.keys(x).length > 0, 'Provide an update') };
+export const likePostSchema = { params, query: z.strictObject({ action: z.enum(ActionEnum).default(ActionEnum.like) }) };
+export const sendTagEmailSchema = { params };
+export const freezePostSchema = { params };
+export const hardDeleteSchema = { params };
+export const getPostByIdSchema = { params };

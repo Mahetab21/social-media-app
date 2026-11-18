@@ -1,4 +1,4 @@
-import { graphql, GraphQLEnumType, GraphQLID, GraphQLList, GraphQLNonNull, GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql';
+import { graphql, GraphQLInt, GraphQLEnumType, GraphQLID, GraphQLList, GraphQLNonNull, GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql';
 import { GenderType } from '../../../DB/model/user.model';
 import { userType } from './user.type';
 import UserService from '../user.service';
@@ -11,10 +11,11 @@ class UserFields {
         return{
             getOneUser:{
                 type:userType,
-                //args:userArgs.getUserArgs,
+                args:userArgs.getUserArgs,
                 resolve:UserService.getOneUser
             },
             getAllUser:{
+                args: { page: { type: GraphQLInt }, limit: { type: GraphQLInt } },
                 type:new GraphQLList(userType),
                 resolve:UserService.getAllUser
             }  

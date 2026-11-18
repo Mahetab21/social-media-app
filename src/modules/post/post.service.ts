@@ -1,413 +1,89 @@
-import { PostRepository } from "../../DB/repositories/post.repository";
-import { UserRepository } from "../../DB/repositories/user.repository";
-import postModel, { AvailabilityEnum, IPost } from "../../DB/model/post.model";
-import userModel from "../../DB/model/user.model";
-import { Request, Response, NextFunction } from "express";
-import { v4 as uuidv4 } from "uuid";
-import { deleteFiles, uploadFiles } from "../../utils/s3.config";
-import { AppError } from "../../utils/classError";
-import {
-  likePostSchemaType,
-  likePostQueryType,
-  sendTagEmailSchemaType,
-  updatePostSchemaType,
-  updatePostBodyType,
-  freezePostSchemaType,
-  hardDeleteSchemaType,
-  getPostByIdSchemaType,
-} from "./post.validation";
-import { UpdateQuery } from "mongoose";
-import { eventEmitter } from "../../utils/event";
-import { emailTemplate } from "../../service/email.temp";
-import { GraphQLError } from "graphql";
-import { getIo } from "../../modules/gateway/gateway";
+import { Request, Response } from 'express';
+import { randomUUID } from 'node:crypto';
+import postModel from '../../DB/model/post.model';
+import userModel from '../../DB/model/user.model';
+import commentModel from '../../DB/model/comment.model';
+import { deleteFiles, uploadFiles } from '../../utils/s3.config';
+import { AppError } from '../../utils/classError';
+import { visiblePost, visiblePostFilter, requireConnection } from '../../utils/privacy';
+import { pagination } from '../../utils/pagination';
+import { sendEmail } from '../../service/sendEmail';
+import { emailTemplate } from '../../service/email.temp';
+
 class PostService {
-  private _userModel = new UserRepository(userModel);
-  private _postModel = new PostRepository(postModel);
-  constructor() {}
-  //====================Create Post====================
-  createPost = async (req: Request, res: Response, next: NextFunction) => {
-    if (
-      req?.body?.tags?.length &&
-      (
-        await this._userModel.find({
-          filter: { _id: { $in: req?.body?.tags } },
-        })
-      ).length !== req?.body?.tags?.length
-    ) {
-      throw new AppError("Invalid tags", 400);
-    }
-    const assestFolderId = uuidv4();
-    let attachments: string[] = [];
-    if (req?.files?.length) {
-      attachments = await uploadFiles({
-        files: req?.files as unknown as Express.Multer.File[],
-        path: `users/${req?.user?._id}/posts/${assestFolderId}`,
-      });
-    }
-    const post = await this._postModel.create({
-      ...req.body,
-      attachments,
-      assestFolderId,
-      createdBy: req.user?._id,
-    });
-    if (!post) {
-      await deleteFiles({ urls: attachments || [] });
-      throw new AppError("Failed to create post", 500);
-    }
-    return res.status(201).json({ message: "post created success", post });
-  };
-  //====================like Post=====================
-  likePost = async (req: Request, res: Response, next: NextFunction) => {
-    const { postId }: likePostSchemaType = req.params as likePostSchemaType;
-    const { action }: likePostQueryType = req.query as likePostQueryType;
-
-    let updateQuery: UpdateQuery<IPost> = {
-      $addToSet: { likes: req.user?._id },
-    };
-    if (action === "unlike") {
-      updateQuery = { $pull: { likes: req.user?._id } };
-    }
-    const post = await this._postModel.findOneAndUpdate(
-      {
-        _id: postId,
-        $or: [
-          { availability: AvailabilityEnum.public },
-          { availability: AvailabilityEnum.private, createdBy: req.user?._id },
-          {
-            availability: AvailabilityEnum.friends,
-            createdBy: { $in: [...(req.user?.friends || []), req.user?._id] },
-          },
-        ],
-      },
-      updateQuery,
-      { new: true }
-    );
-
-    if (!post) {
-      throw new AppError("Failed to like post", 500);
-    }
-    return res
-      .status(200)
-      .json({ message: `post ${action} successfully`, post });
-  };
-  //====================update Post====================
-  updatePost = async (req: Request, res: Response, next: NextFunction) => {
-    const { postId }: updatePostSchemaType = req.params as updatePostSchemaType;
-    const {
-      content,
-      attachments,
-      availability,
-      allowComments,
-      tags,
-    }: updatePostBodyType = req.body as updatePostBodyType;
-    const post = await this._postModel.findOne({
-      _id: postId,
-      createdBy: req.user?._id,
-      paranoid: true, // not soft deleted
-    });
-    if (!post) {
-      throw new AppError("Post not found", 404);
-    }
-    if (req?.body?.content) {
-      post.content = req.body.content;
-    }
-    if (req?.body?.availability) {
-      post.availability = req.body.availability;
-    }
-    if (req?.body?.allowComments) {
-      post.allowComments = req.body.allowComments;
-    }
-    if (req?.files?.length) {
-      await deleteFiles({ urls: post.attachments || [] });
-      post.attachments = await uploadFiles({
-        files: req?.files as unknown as Express.Multer.File[],
-        path: `users/${req?.user?._id}/posts/${post.assestFolderId}`,
-      });
-    }
-    if (req?.body?.tags?.length) {
-      if (
-        req?.body?.tags?.length &&
-        (
-          await this._userModel.find({
-            filter: { _id: { $in: req?.body?.tags } },
-          })
-        ).length !== req?.body?.tags?.length
-      ) {
-        throw new AppError("Invalid tags", 400);
-      }
-      post.tags = req.body.tags;
-    }
-    await post.save();
-    return res.status(200).json({ message: "post updated successfully", post });
-  };
-  //====================send email tags=================
-  sendTagNotificationEmails = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    const { postId }: sendTagEmailSchemaType =
-      req.params as sendTagEmailSchemaType;
-    const post = await this._postModel.findOne({
-      _id: postId,
-      createdBy: req.user?._id,
-      paranoid: true,
-    });
-    if (!post) {
-      throw new AppError("Post not found", 404);
-    }
-    if (!post.tags || post.tags.length === 0) {
-      throw new AppError("No users tagged in this post", 400);
-    }
-    const taggedUsers = await this._userModel.find({
-      filter: { _id: { $in: post.tags } },
-      select: "email name username",
-    });
-    const creator = await this._userModel.findOne(
-      { _id: post.createdBy },
-      "name username"
-    );
-    const fromName = creator
-      ? `${creator.fName || ""} ${creator.lName || ""}`.trim() ||
-        creator.userName
-      : "Someone";
-    taggedUsers.forEach((u: any) => {
-      const to = u.email;
-      const toName = u.name || u.username || "";
-      const subject = `${fromName} tagged you in a post`;
-      const html = emailTemplate(post.content || "", subject);
-
-      eventEmitter.emit("notifyTagged", {
-        to,
-        toName,
-        fromName,
-        postId: post._id,
-        html,
-        subject,
-      });
-    });
-
-    return res
-      .status(200)
-      .json({ message: "Tag notification emails sent successfully" });
-  };
-  //====================get all post=====================
-getPosts = async (req: Request, res: Response, next: NextFunction) => {
-  const posts = await this._postModel.find({
-    filter: {
-      deletedAt: { $exists: false }, // Exclude soft-deleted posts
-      $or: [
-        { availability: AvailabilityEnum.public },
-        { availability: AvailabilityEnum.private, createdBy: req.user?._id },
-        {
-          availability: AvailabilityEnum.friends,
-          createdBy: { $in: [...(req.user?.friends || []), req.user?._id] },
-        },
-      ],
-    },
-    options: {
-      populate: [
-        {
-          path: "comments", 
-          match: {
-            commentId: { $exists: false },// get the basic comment
-          },
-          populate: {
-            path: "replies", // get reply 
-          },
-        },
-      ],
-    },
-  });
-
-  return res
-    .status(200)
-    .json({ message: "Posts fetched successfully", posts });
-};
-  //=====================freeze post====================
-  freezePost = async (req: Request, res: Response, next: NextFunction) => {
-    const { postId }: freezePostSchemaType = req.params as freezePostSchemaType;
-    const userId = req.user?._id;
-    if (!userId) {
-      throw new AppError("User not found", 404);
-    }
-    const post = await this._postModel.findOneAndUpdate(
-      {
-        _id: postId,
-        isFrozen: false,
-        deletedAt: { $exists: false },
-      },
-      {
-        $set: {
-          isFrozen: true,
-          frozenAt: new Date(),
-          frozenBy: userId,
-        },
-      }
-    );
-    if (!post) {
-      throw new AppError("Post not found or already frozen", 404);
-    }
-    return res.status(200).json({ message: "Post frozen successfully", post });
-  };
-  //======================hard delete post==================
-  hardDelete = async (req: Request, res: Response, next: NextFunction) => {
-    const { postId }: hardDeleteSchemaType = req.params as hardDeleteSchemaType;
-    const post = await this._postModel.findOne({
-      _id: postId,
-      createdBy: req.user?._id,
-      paranoid: true,
-    });
-    if (!post) {
-      throw new AppError("Post not found", 404);
-    }
-    if (post.attachments && post.attachments.length) {
-      await deleteFiles({ urls: post.attachments });
-    }
-
-    const deleted = await this._postModel.findOneAndDelete({ _id: postId, createdBy: req.user?._id});
-    if (!deleted) {
-      throw new AppError("Failed to delete post", 500);
-    }
-    return res.status(200).json({ message: "Post permanently deleted" });
-  };
-  //=======================get post by id====================
-  getPostById = async (req: Request, res: Response, next: NextFunction) => {
-    const { postId }: getPostByIdSchemaType =
-      req.params as getPostByIdSchemaType;
-    const posts = await this._postModel.find({
-      filter: {
-        _id: postId,
-        deletedAt: { $exists: false },
-        $or: [
-          { availability: AvailabilityEnum.public },
-          { availability: AvailabilityEnum.private, createdBy: req.user?._id },
-          { availability: AvailabilityEnum.friends, createdBy: { $in: [...(req.user?.friends || []), req.user?._id] } },
-        ],
-      },
-      options: {
-        populate: [
-          {
-            path: "createdBy",
-            select: "userName profilePicture",
-          },
-          {
-            path: "comments",
-            match: {
-              commentId: { $exists: false },
-            },
-            populate: [
-              {
-                path: "createdBy",
-                select: "userName profilePicture",
-              },
-              {
-                path: "replies",
-                populate: {
-                  path: "createdBy",
-                  select: "userName profilePicture",
-                },
-              },
-            ],
-          },
-        ],
-      },
-    });
-
-    const post = posts[0]; // Get the first result
-    if (!post) {
-      throw new AppError("Post not found or not publicly available", 404);
-    }
-    return res.status(200).json({ message: "Post fetched successfully", post });
-  };
-  //********============Graph Ql================************
-  //------------get posts GQL---------------
-  getPostsGQL = async (parent: any, args: any) => {
-    let { page = 1, limit = 5 } = args as unknown as {
-      page?: number;
-      limit?: number;
-    };
-    const { currentPage, docs, countDocument, numberOfPages } =
-      await this._postModel.paginate({
-        filter: {},
-        query: { page, limit },
-      });
-    return {
-      posts: docs,
-      currentPage,
-      numberOfPages,
-      countDocument,
-    };
-  };
-  //----------like post GQL-------------
-  likePostGQL = async (parent: any, args: any, context: any) => {
-    const { postId, action } = args;
-    const user = context?.req?.user || context?.user;
-    if (!user || !user._id) {
-      throw new GraphQLError("unauthorized", {
-        extensions: {
-          message: "unauthorized",
-          statuscode: 401,
-        },
-      });
-    }
-    let updateQuery: UpdateQuery<IPost> = {
-      $addToSet: { likes: user._id },
-    };
-    if (action === "unlike") {
-      updateQuery = { $pull: { likes: user._id } };
-    }
-    const post = await this._postModel.findOneAndUpdate(
-      {
-        _id: postId,
-        $or: [
-          { availability: AvailabilityEnum.public },
-          { availability: AvailabilityEnum.private, createdBy: user._id },
-          {
-            availability: AvailabilityEnum.friends,
-            createdBy: { $in: [...(user?.friends || []), user._id] },
-          },
-        ],
-      },
-      updateQuery,
-      { new: true }
-    );
-    if (!post) {
-      throw new GraphQLError("Failed to like post", {
-        extensions: {
-          message: "failed to like ",
-          statuscode: 400,
-        },
-      });
-    }
-
-    // emit socket event so frontend updates in real-time
+  private async tags(ids: string[] = [], user: any) {
+    for (const id of ids) if (String(id) !== String(user._id)) await requireConnection(user, id, false);
+  }
+  createPost = async (req: Request, res: Response) => {
+    await this.tags(req.body.tags, req.user!);
+    const assestFolderId = randomUUID();
+    const attachments = Array.isArray(req.files) && req.files.length ? await uploadFiles({ files: req.files, path: 'users/' + req.user!._id + '/posts/' + assestFolderId }) : [];
     try {
-      const io = getIo();
-      const payload = {
-        postId: post._id,
-        action,
-        liker: {
-          _id: user._id,
-          userName: user.userName || user.username || "",
-          profilePicture: user.profilePicture || null,
-        },
-        likesCount: Array.isArray(post.likes) ? post.likes.length : 0,
-      };
-      // emit to a room for the post so all viewers of the post get update
-      io.to(`post:${String(post._id)}`).emit("postLike", payload);
-      // also notify the post owner (if not the same user)
-      const ownerId = (post as any).createdBy?._id || (post as any).createdBy;
-      if (ownerId && String(ownerId) !== String(user._id)) {
-        io.to(`user:${String(ownerId)}`).emit("postLike", payload);
-      }
-    } catch (e) {
-      // don't fail the operation if socket emission fails
-      console.error("socket emit failed", e);
+      const { content, availability, allowComments, tags } = req.body;
+      const post = await postModel.create({ content, availability, allowComments, tags, attachments, assestFolderId, createdBy: req.user!._id });
+      return res.status(201).json({ post });
+    } catch (error) { await deleteFiles({ urls: attachments }); throw error; }
+  };
+  private async like(id: string, action: string, user: any) {
+    const post = await postModel.findOneAndUpdate({ _id: id, ...await visiblePostFilter(user) }, action === 'unlike' ? { $pull: { likes: user._id } } : { $addToSet: { likes: user._id } }, { new: true });
+    if (!post) throw new AppError('Post not found', 404);
+    return post;
+  }
+  likePost = async (req: Request, res: Response) => res.json({ post: await this.like(String(req.params.postId), String(req.query.action), req.user!) });
+  updatePost = async (req: Request, res: Response) => {
+    const post = await postModel.findOne({ _id: req.params.postId, createdBy: req.user!._id, isFrozen: { $ne: true } });
+    if (!post) throw new AppError('Post not found', 404);
+    await this.tags(req.body.tags, req.user!);
+    const previous = post.attachments || [];
+    let uploads: string[] = [];
+    if (Array.isArray(req.files) && req.files.length) uploads = await uploadFiles({ files: req.files, path: 'users/' + req.user!._id + '/posts/' + post.assestFolderId });
+    for (const key of ['content', 'availability', 'allowComments', 'tags']) if (req.body[key] !== undefined) post.set(key, req.body[key]);
+    if (uploads.length) post.attachments = uploads;
+    try { await post.save(); } catch (error) { await deleteFiles({ urls: uploads }); throw error; }
+    if (uploads.length) await deleteFiles({ urls: previous });
+    return res.json({ post });
+  };
+  getPosts = async (req: Request, res: Response) => {
+    const { page, limit, skip } = pagination(req.query), filter = await visiblePostFilter(req.user!);
+    const [posts, total] = await Promise.all([postModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit), postModel.countDocuments(filter)]);
+    return res.json({ posts, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+  };
+  getPostById = async (req: Request, res: Response) => res.json({ post: await visiblePost(req.params.postId, req.user!) });
+  freezePost = async (req: Request, res: Response) => {
+    const post = await postModel.findOneAndUpdate({ _id: req.params.postId, createdBy: req.user!._id, isFrozen: { $ne: true }, deletedAt: { $exists: false } }, { $set: { isFrozen: true, frozenAt: new Date(), frozenBy: req.user!._id } }, { new: true });
+    if (!post) throw new AppError('Post not found', 404);
+    return res.json({ post });
+  };
+  hardDelete = async (req: Request, res: Response) => {
+    const post = await postModel.findOneAndDelete({ _id: req.params.postId, createdBy: req.user!._id });
+    if (!post) throw new AppError('Post not found', 404);
+    await commentModel.updateMany({ postId: post._id }, { $set: { deletedAt: new Date() } });
+    await deleteFiles({ urls: post.attachments || [] });
+    return res.json({ message: 'Post deleted' });
+  };
+  sendTagNotificationEmails = async (req: Request, res: Response) => {
+    const post = await postModel.findOne({ _id: req.params.postId, createdBy: req.user!._id, isFrozen: { $ne: true } });
+    if (!post) throw new AppError('Post not found', 404);
+    let sent = 0;
+    for (const id of post.tags || []) {
+      const recipient = await userModel.findOne({ _id: id, confirmed: true, deletedAt: { $exists: false } });
+      if (!recipient) continue;
+      if (!await postModel.exists({ _id: post._id, ...await visiblePostFilter(recipient) })) continue;
+      await sendEmail({ to: recipient.email, subject: 'You were tagged in a post', html: emailTemplate('Open your feed to view the post.', 'Post notification') }); sent++;
     }
-    return `post ${action} successfully`;
+    return res.json({ message: 'Notifications sent', sent });
+  };
+  getPostsGQL = async (_parent: unknown, args: any, context: any) => {
+    const user = context?.req?.user;
+    if (!user) throw new AppError('Authentication required', 401);
+    const { page, limit, skip } = pagination(args), filter = await visiblePostFilter(user);
+    const [posts, countDocument] = await Promise.all([postModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit), postModel.countDocuments(filter)]);
+    return { posts, currentPage: page, numberOfPages: Math.ceil(countDocument / limit), countDocument };
+  };
+  likePostGQL = async (_parent: unknown, args: any, context: any) => {
+    if (!context?.req?.user) throw new AppError('Authentication required', 401);
+    await this.like(args.postId, args.action, context.req.user);
+    return 'Post ' + args.action + ' successful';
   };
 }
-
 export default new PostService();

@@ -1,204 +1,34 @@
-import z, { email } from "zod";
-import { GenderType } from "../../DB/model/user.model";
-import { Types } from "mongoose";
-import { generalRules } from "../../utils/generalRules";
-export enum flagType {
-  all = "all",
-  current = "current",
-}
-export const signInSchema = {
-  body: z.strictObject({
-      email: z.email(),
-      password: z.string().regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/),
-    }).required(),
-};
-export const signUpSchema = {
-  body: signInSchema.body.extend({
-      lName: z.string().min(2).max(100).trim(),
-      fName: z.string().min(2).max(100).trim(),
-      cPassword: z.string(),
-      age: z.number().min(18).max(60),
-      address: z.string(),
-      phone: z.string(),
-      gender: z.enum([GenderType.female, GenderType.male]),
-    }).required().superRefine((data, ctx) => {
-      console.log(data, ctx);
-      if (data.password !== data.cPassword) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["cPassword"],
-          message: "Password and confirm password must be the same",
-        });
-      }
-    }),
-};
-export const confirmEmailSchema = {
-  body: z.strictObject({
-      email: z.email(),
-      otp: z.string().regex(/^\d{6}$/).trim(),
-    }).required(),
-};
-
-export const logOutSchema = {
-  body: z.strictObject({
-      flag: z.enum(flagType),
-    }).required(),
-};
-export const logInWithGmailSchema = {
-  body: z.strictObject({
-      idToken: z.string(),
-    }).required(),
-};
-export const forgetPasswordSchema = {
-  body: z.strictObject({
-      email: z.email(),
-    }).required(),
-};
-export const resetPasswordSchema = {
-  body: confirmEmailSchema.body
-    .extend({
-      password: z
-        .string()
-        .regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/),
-      cPassword: z.string(),
-    })
-    .required()
-    .superRefine((value, ctx) => {
-      if (value.password !== value.cPassword) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["cPassword"],
-          message: "Password and confirm password must be the same",
-        });
-      }
-    }),
-};
-export const freezeSchema = {
-  params: z.strictObject({
-      userId: z.string().optional(),
-    }).required().refine((value) => {
-        return value?.userId ? Types.ObjectId.isValid(value.userId) : true;
-      },
-      {
-        message: "Invalid userId",
-        path: ["userId"],
-      }
-    ),
-};
-export const unFreezeSchema = {
-  params: z.strictObject({
-      userId: z.string(),
-    }).required().refine((value) => {
-        return Types.ObjectId.isValid(value.userId);
-      },
-      {
-        message: "Invalid userId",
-        path: ["userId"],
-      }
-    ),
-};
-
-export const deleteSchema = {
-  params: z.strictObject({
-      userId: z.string(),
-    }).required().refine((value) => {
-        return value?.userId ? Types.ObjectId.isValid(value.userId) : true;
-      },
-      {
-        message: "Invalid userId",
-        path: ["userId"],
-      }
-    ),
-};
-export const updatePasswordSchema={
-  body:z.strictObject({
-    currentPassword: z.string().regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/),
-    newPassword: z.string().min(8).max(100).regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/),
-    cNewPassword: z.string().min(8).max(100).regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/),
-  }).required().superRefine((data, ctx) => {
-    if (data.newPassword !== data.cNewPassword) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["cNewPassword"],
-        message: "New password and confirm new password must be the same",
-      });
-    }
-  }),
-}
-export const updateBasicInfoSchema={
-  body:z.strictObject({
-    lName: z.string().min(2).max(100).trim().optional(),
-    fName: z.string().min(2).max(100).trim().optional(),
-    age: z.number().min(18).max(60).optional(),
-    address: z.string().optional(),
-    phone: z.string().optional(),
-    gender: z.enum([GenderType.female, GenderType.male]).optional(),
-    userName:z.string().min(3).max(30).trim().optional(),
-  }).refine((data) => {
-    return Object.keys(data).length > 0
-  },{
-    message:"At least one field is required",
-
-  })
-}
-export const updateEmailSchema = {
-  body: z.object({
-    newEmail: z.string().email(),
-    password: z.string().regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/),
-  }).required()
-}
-
-export const confirmNewEmailSchema = {
-  body: z.object({
-    otp: z.string().regex(/^\d{6}$/).trim(),
-  })}
-export const confirmTwoFactorSchema={
-  body: z.object({
-    otp: z.string().regex(/^\d{6}$/).trim(),
-  })
-}  
-export const loginSchema={
-  body: z.object({
-    email: z.email(),
-    password: z.string().regex(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z]).{8,}$/),
-  })
-}
-export const confirmTwoFactorLoginSchema={
-  body: z.object({
-    email: z.email(),
-    otp: z.string().regex(/^\d{6}$/).trim(),
-  })
-}
-export const blockUserSchema = {
-  params: z.strictObject({
-      userId: z.string().refine((value) => {
-        return Types.ObjectId.isValid(value);
-      }, {
-        message: "Invalid userId",
-        path: ["userId"],
-      }),
-  })
-}
-//===schema of getOneUserSchemaType of graphql validation======
-export const getOneUserSchemaType = z.strictObject({
-  id:generalRules.id
-})
-
-export type signUpSchemaType = z.infer<typeof signUpSchema.body>;
-export type confirmEmailSchemaType = z.infer<typeof confirmEmailSchema.body>;
-export type signInSchemaType = z.infer<typeof signInSchema.body>;
-export type logOutSchemaType = z.infer<typeof logOutSchema.body>;
-export type logInWithGmailSchemaType = z.infer<typeof logInWithGmailSchema.body>;
-export type forgetPasswordSchemaType = z.infer<typeof forgetPasswordSchema.body>;
-export type resetPasswordSchemaType = z.infer<typeof resetPasswordSchema.body>;
-export type freezeSchemaType = z.infer<typeof freezeSchema.params>;
-export type unFreezeSchemaType = z.infer<typeof unFreezeSchema.params>;
-export type deleteSchemaType = z.infer<typeof deleteSchema.params>;
-export type updatePasswordSchemaType = z.infer<typeof updatePasswordSchema.body>;
-export type updateBasicInfoSchemaType = z.infer<typeof updateBasicInfoSchema.body>;
-export type updateEmailSchemaType = z.infer<typeof updateEmailSchema.body>;
-export type confirmNewEmailSchemaType = z.infer<typeof confirmNewEmailSchema.body>;
-export type confirmTwoFactorSchemaType = z.infer<typeof confirmTwoFactorSchema.body>;
-export type loginSchemaType = z.infer<typeof loginSchema.body>;
-export type confirmTwoFactorLoginSchemaType = z.infer<typeof confirmTwoFactorLoginSchema.body>;
-export type blockUserSchemaType = z.infer<typeof blockUserSchema.params>;
+import { z } from 'zod';
+import { GenderType, RoleType } from '../../DB/model/user.model';
+import { generalRules } from '../../utils/generalRules';
+export enum flagType { all = 'all', current = 'current' }
+const email = z.email().trim().toLowerCase(), password = z.string().min(8).max(72).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])/);
+const otp = z.string().regex(/^[0-9]{6}$/);
+export const signInSchema = { body: z.strictObject({ email, password: z.string().min(1).max(72) }) };
+export const loginSchema = signInSchema;
+export const signUpSchema = { body: z.strictObject({
+ fName:z.string().trim().min(2).max(100), lName:z.string().trim().min(2).max(100), email, password, cPassword:z.string(),
+ age:z.number().int().min(18).max(60), gender:z.enum(GenderType), address:z.string().max(250).optional(), phone:z.string().max(30).optional()
+}).refine(x=>x.password===x.cPassword,{path:['cPassword'],message:'Passwords must match'}) };
+export const confirmEmailSchema = { body:z.strictObject({email,otp}) };
+export const confirmTwoFactorLoginSchema = confirmEmailSchema;
+export const forgetPasswordSchema = { body:z.strictObject({email}) };
+export const resetPasswordSchema = { body:confirmEmailSchema.body.extend({password,cPassword:z.string()}).refine(x=>x.password===x.cPassword,{path:['cPassword'],message:'Passwords must match'}) };
+export const logOutSchema = { body:z.strictObject({flag:z.enum(flagType).default(flagType.current)}) };
+export const logInWithGmailSchema = { body:z.strictObject({idToken:z.string().min(1).max(10000)}) };
+export const freezeSchema = { params:z.object({userId:generalRules.id.optional()}) };
+export const unFreezeSchema = { params:z.object({userId:generalRules.id}) };
+export const deleteSchema = unFreezeSchema;
+export const blockUserSchema = unFreezeSchema;
+export const updatePasswordSchema = { body:z.strictObject({currentPassword:z.string().min(1).max(72),newPassword:password,cNewPassword:z.string()}).refine(x=>x.newPassword===x.cNewPassword,{path:['cNewPassword'],message:'Passwords must match'}) };
+export const updateBasicInfoSchema = { body:z.strictObject({
+ fName:z.string().trim().min(2).max(100).optional(),lName:z.string().trim().min(2).max(100).optional(),age:z.number().int().min(18).max(60).optional(),
+ gender:z.enum(GenderType).optional(),address:z.string().max(250).optional(),phone:z.string().max(30).optional()
+}).refine(x=>Object.keys(x).length>0,'Provide an update') };
+export const updateEmailSchema = { body:z.strictObject({newEmail:email,password:z.string().min(1).max(72)}) };
+export const confirmNewEmailSchema = { body:z.strictObject({otp}) };
+export const confirmTwoFactorSchema = confirmNewEmailSchema;
+export const changeRoleSchema = { ...unFreezeSchema, body:z.strictObject({role:z.enum([RoleType.user,RoleType.admin])}) };
+export const uploadImagesSchema = { body:z.strictObject({originalname:z.string().min(1).max(150),ContentType:z.enum(['image/jpeg','image/png'])}) };
+export const getOneUserSchemaType = z.strictObject({id:generalRules.id});
+export const idParams = (key:string) => ({params:z.object({[key]:generalRules.id})});

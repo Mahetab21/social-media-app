@@ -1,412 +1,77 @@
-import { PostRepository } from "../../DB/repositories/post.repository";
-import { UserRepository } from "../../DB/repositories/user.repository";
-import postModel, {
-  AllowCommentEnum,
-  AvailabilityEnum,
-  IPost,
-} from "../../DB/model/post.model";
-import userModel from "../../DB/model/user.model";
-import { Request, Response, NextFunction } from "express";
-import { v4 as uuidv4 } from "uuid";
-import { deleteFiles, uploadFiles } from "../../utils/s3.config";
-import { AppError } from "../../utils/classError";
-import { HydratedDocument, Types, UpdateQuery } from "mongoose";
-import { eventEmitter } from "../../utils/event";
-import { emailTemplate } from "../../service/email.temp";
-import { CommentRepository } from "../../DB/repositories/comment.repository";
-import commentModel, {
-  IComment,
-  OnModelEnum,
-} from "../../DB/model/comment.model";
-import {
-  FreezeCommentInput,
-  HardDeleteCommentInput,
-  UpdateCommentInput,
-  GetCommentsByIdInput,
-  GetCommentWithReplyInput,
-} from "./comment.validation";
-// Removed incorrect import - populate is not from dotenv
+import { Request, Response } from 'express';
+import { randomUUID } from 'node:crypto';
+import commentModel, { OnModelEnum } from '../../DB/model/comment.model';
+import userModel from '../../DB/model/user.model';
+import { AllowCommentEnum } from '../../DB/model/post.model';
+import { visiblePost, visibleComment, requireConnection } from '../../utils/privacy';
+import { uploadFiles, deleteFiles } from '../../utils/s3.config';
+import { pagination } from '../../utils/pagination';
+import { AppError } from '../../utils/classError';
+
 class CommentService {
-  private _userModel = new UserRepository(userModel);
-  private _postModel = new PostRepository(postModel);
-  private _commentModel = new CommentRepository(commentModel);
-  constructor() {}
-  //====================Create Comment===================
-  createComment = async (req: Request, res: Response, next: NextFunction) => {
-    const { postId, commentId } = req.params;
-    let { content, tags, onModel } = req.body;
-
-    // Validate required content
-    if (!content || content.trim().length === 0) {
-      throw new AppError("Content is required", 400);
-    }
-
-    let doc: HydratedDocument<IPost | IComment> | null = null;
-    if (commentId) {
-      if (onModel !== OnModelEnum.Comment) {
-        throw new AppError(
-          "onModel must be Comment when replying to a comment",
-          400
-        );
-      }
-
-      const comment = await this._commentModel.findOne(
-        {
-          _id: commentId,
-          refId: postId,
-        },
-        {
-          populate: {
-            path: "refId",
-            match: {
-              allowComments: AllowCommentEnum.allow,
-              availability: AvailabilityEnum.public,
-            },
-          },
-        }
-      );
-      if (!comment?.refId) {
-        throw new AppError(
-          "Comment not found or you are not allowed to reply on this comment",
-          404
-        );
-      }
-      doc = comment;
-    } else if (onModel === OnModelEnum.post) {
-      const post = await this._postModel.findOne({
-        _id: postId,
-        allowComments: AllowCommentEnum.allow,
-        availability: AvailabilityEnum.public,
-      });
-      if (!post) {
-        throw new AppError(
-          "Post not found or you are not allowed to comment on this post",
-          404
-        );
-      }
-      doc = post;
-    } else {
-      throw new AppError("Invalid onModel value or missing commentId", 400);
-    }
-
-    if (
-      tags?.length &&
-      (await this._userModel.find({ filter: { _id: { $in: tags } } }))
-        .length !== tags.length
-    ) {
-      throw new AppError("Invalid tags", 400);
-    }
-
-    const assestFolderId = uuidv4().toString();
-    let attachments: string[] | undefined;
-
-    // Check for uploaded files, not body.attachments
-    if (req.files && (req.files as Express.Multer.File[]).length > 0) {
-      attachments = await uploadFiles({
-        files: req.files as Express.Multer.File[],
-        path: `users/${doc?.createdBy}/posts/${doc?.assestFolderId}/comments/${assestFolderId}`,
-      });
-    }
-
-    const commentData: any = {
-      content,
-      assestFolderId,
-      refId: doc?._id as unknown as Types.ObjectId,
-      onModel,
-      createdBy: req?.user?._id as unknown as Types.ObjectId,
-    };
-
-    // Only add optional fields if they have values
-    if (attachments?.length) commentData.attachments = attachments;
-    if (tags?.length) commentData.tags = tags;
-
-    const comments = await this._commentModel.create(commentData);
-
-    if (!comments) {
-      // Clean up uploaded files if comment creation failed
-      if (attachments?.length) {
-        await deleteFiles({
-          urls: attachments,
-        });
-      }
-      throw new AppError("Failed to create comment", 500);
-    }
-
-    return res.status(201).json({
-      message: "Comment created successfully",
-      comment: comments,
-    });
+  private async tags(ids: string[] = [], user: any) {
+    for (const id of ids) if (String(id) !== String(user._id)) await requireConnection(user, id, false);
+  }
+  createComment = async (req: Request, res: Response) => {
+    const post = await visiblePost(req.params.postId, req.user!);
+    if (post.allowComments !== AllowCommentEnum.allow) throw new AppError('Comments are disabled', 403);
+    const parent = req.params.commentId ? await visibleComment(req.params.commentId, post._id, req.user!) : null;
+    const onModel = parent ? OnModelEnum.Comment : OnModelEnum.post;
+    if (req.body.onModel !== onModel) throw new AppError('onModel does not match the target', 400);
+    await this.tags(req.body.tags, req.user!);
+    const assestFolderId = randomUUID(), attachments = Array.isArray(req.files) && req.files.length ? await uploadFiles({ files: req.files, path: 'users/' + req.user!._id + '/comments/' + assestFolderId }) : [];
+    try {
+      const comment = await commentModel.create({ content: req.body.content, tags: req.body.tags, attachments, assestFolderId, createdBy: req.user!._id, postId: post._id, refId: parent?._id || post._id, onModel });
+      return res.status(201).json({ comment });
+    } catch (error) { await deleteFiles({ urls: attachments }); throw error; }
   };
-  //====================freeze comment===================
-  freezeComment = async (req: Request, res: Response, next: NextFunction) => {
-    const { commentId }: FreezeCommentInput = req.params as FreezeCommentInput;
-    const userId = req.user?._id;
-    if (!userId) {
-      throw new AppError("User not found", 404);
-    }
-    const comment = await this._commentModel.findOneAndUpdate(
-      {
-        _id: commentId,
-        isFrozen: false,
-        deletedAt: { $exists: false },
-      },
-      {
-        $set: {
-          isFrozen: true,
-          frozenAt: new Date(),
-          frozenBy: userId,
-        },
-      },
-      { new: true }
-    );
-    if (!comment) {
-      throw new AppError("Comment not found, already frozen or deleted", 404);
-    }
-    return res
-      .status(200)
-      .json({ message: "Comment frozen successfully", comment });
+  private async own(req: Request, includeFrozen = false) {
+    const comment = includeFrozen ? await commentModel.findOne({ _id: req.params.commentId, createdBy: req.user!._id, postId: req.params.postId }) : await visibleComment(req.params.commentId, req.params.postId, req.user!);
+    if (!comment || String(comment.createdBy) !== String(req.user!._id)) throw new AppError('Comment not found', 404);
+    return comment;
+  }
+  freezeComment = async (req: Request, res: Response) => {
+    const comment = await this.own(req);
+    comment.isFrozen = true; comment.frozenAt = new Date(); comment.frozenBy = req.user!._id as any; await comment.save();
+    return res.json({ comment });
   };
-  //====================hard delete comment===========
-  hardDeleteComment = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    const { commentId }: HardDeleteCommentInput =
-      req.params as HardDeleteCommentInput;
-    const userId = req.user?._id;
-    if (!userId) {
-      throw new AppError("Unauthorized", 401);
-    }
-    const comment = await this._commentModel.findOne({
-      _id: commentId,
-      createdBy: userId,
-      paranoid: true,
-    });
-    if (!comment) {
-      throw new AppError("Comment not found or not permitted to delete", 404);
-    }
-    if (comment.attachments && comment.attachments.length) {
-      await deleteFiles({ urls: comment.attachments });
-    }
-    const deleted = await this._commentModel.findOneAndDelete({
-      _id: commentId,
-    });
-
-    if (!deleted) {
-      throw new AppError("Failed to delete comment", 500);
-    }
-    return res.status(200).json({ message: "Comment permanently deleted" });
+  hardDeleteComment = async (req: Request, res: Response) => {
+    const comment = await this.own(req, true);
+    await commentModel.deleteOne({ _id: comment._id, createdBy: req.user!._id });
+    // Replies are inaccessible once their ancestor is removed; retain them for administrative cleanup.
+    await deleteFiles({ urls: comment.attachments || [] });
+    return res.json({ message: 'Comment deleted' });
   };
-  //===================update comment===================
-  updateComment = async (req: Request, res: Response, next: NextFunction) => {
-    const { commentId } = req.params as UpdateCommentInput["params"];
-    let { content, tags, onModel } = req.body as UpdateCommentInput["body"];
-    const userId = req.user?._id;
-
-    if (!userId) {
-      throw new AppError("User not found", 404);
-    }
-
-    const existingComment = await this._commentModel.findOne({
-      _id: commentId,
-      createdBy: userId,
-      deletedAt: { $exists: false },
-      isFrozen: false,
-    });
-
-    if (!existingComment) {
-        throw new AppError("Comment not found or not permitted to update", 404);
-    }
-
-    if (
-      tags?.length &&
-      (await this._userModel.find({ filter: { _id: { $in: tags } } }))
-        .length !== tags.length
-    ) {
-      throw new AppError("Invalid tags", 400);
-    }
-
-    let newAttachments: string[] | undefined;
-    if (req.files && (req.files as Express.Multer.File[]).length > 0) {
-      if (
-        existingComment.attachments &&
-        existingComment.attachments.length > 0
-      ) {
-        await deleteFiles({ urls: existingComment.attachments });
-      }
-
-      newAttachments = await uploadFiles({
-        files: req.files as Express.Multer.File[],
-        path: `users/${userId}/posts/${existingComment.refId}/comments/${existingComment.assestFolderId}`,
-      });
-    }
-
-    const updateData: any = {};
-    if (content !== undefined) updateData.content = content;
-    if (newAttachments !== undefined) updateData.attachments = newAttachments;
-    if (tags !== undefined) updateData.tags = tags;
-    if (onModel !== undefined) updateData.onModel = onModel;
-    updateData.updatedAt = new Date();
-
-    const updatedComment = await this._commentModel.findOneAndUpdate(
-      {
-        _id: commentId,
-        createdBy: userId,
-        deletedAt: { $exists: false },
-        isFrozen: false,
-      },
-      { $set: updateData },
-      { new: true }
-    );
-
-    if (!updatedComment) {
-      if (newAttachments?.length) {
-        await deleteFiles({ urls: newAttachments });
-      }
-      throw new AppError("Failed to update comment", 500);
-    }
-
-    return res.status(200).json({
-      message: "Comment updated successfully",
-      comment: updatedComment,
-    });
+  updateComment = async (req: Request, res: Response) => {
+    const comment = await this.own(req);
+    if (req.body.onModel !== undefined && req.body.onModel !== comment.onModel) throw new AppError('Cannot change a comment target', 400);
+    await this.tags(req.body.tags, req.user!);
+    const old = comment.attachments || [], uploads = Array.isArray(req.files) && req.files.length ? await uploadFiles({ files: req.files, path: 'users/' + req.user!._id + '/comments/' + comment.assestFolderId }) : [];
+    if (req.body.content !== undefined) comment.content = req.body.content;
+    if (req.body.tags !== undefined) comment.tags = req.body.tags;
+    if (uploads.length) comment.attachments = uploads;
+    try { await comment.save(); } catch (error) { await deleteFiles({ urls: uploads }); throw error; }
+    if (uploads.length) await deleteFiles({ urls: old });
+    return res.json({ comment });
   };
-  //===================get comments by postId=============
-  getCommentsById = async (req: Request, res: Response, next: NextFunction) => {
-    const { commentId }: GetCommentsByIdInput =
-      req.params as GetCommentsByIdInput;
-    const userId = req.user?._id;
-    if (!userId) {
-      throw new AppError("user not found", 404);
-    }
-    const comment = await this._commentModel.findOne(
-      {
-        _id: commentId,
-        deletedAt: { $exists: false },
-        isFrozen: false,
-      },
-      {
-        populate: [
-          {
-            path: "createdBy",
-            select: "firstName lastName userName profileImage",
-          },
-          {
-            path: "tags",
-            select: "firstName lastName userName profileImage",
-          },
-          {
-            path: "refId",
-            populate: {
-              path: "createdBy",
-              select: "firstName lastName userName profileImage",
-            },
-          },
-        ],
-      }
-    );
-    if (!comment) {
-      throw new AppError(
-        "comment not found or has been deleted or frozen",
-        404
-      );
-    }
-    if (comment.refId && comment.onModel == OnModelEnum.post) {
-      const post = comment.refId as any;
-      if (
-        post.availability == AvailabilityEnum.private &&
-        post.createdBy.toString() !== userId.toString()
-      ) {
-        throw new AppError("You are not allowed to view this comment", 403);
-      }
-    }
-    return res.status(200).json({ message: "success", comment });
+  private async authorFilter(user: any) {
+    const excluded = await userModel.find({ $or: [{ blockedUsers: user._id }, { _id: { $in: user.blockedUsers } }] }).distinct('_id');
+    const ids = await userModel.find({ _id: { $nin: excluded }, confirmed: true, deletedAt: { $exists: false } }).distinct('_id');
+    return { createdBy: { $in: ids }, isFrozen: { $ne: true }, deletedAt: { $exists: false } };
+  }
+  getCommentsById = async (req: Request, res: Response) => {
+    await visiblePost(req.params.postId, req.user!);
+    const { skip, limit, page } = pagination(req.query);
+    const filter = { refId: req.params.postId, onModel: OnModelEnum.post, ...await this.authorFilter(req.user!) };
+    const [comments, total] = await Promise.all([commentModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit), commentModel.countDocuments(filter)]);
+    return res.json({ comments, pagination: { page, limit, total } });
   };
-  //===================get comment with reply==============
-  getCommentWithReply = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    const { commentId }: GetCommentWithReplyInput =
-      req.params as GetCommentWithReplyInput;
-    const userId = req.user?._id;
-    if (!userId) {
-      throw new AppError("user not found", 404);
-    }
-    const comment = await this._commentModel.findOne(
-      {
-        _id: commentId,
-        deletedAt: { $exists: false },
-        isFrozen: false,
-      },
-      {
-        populate: [
-          {
-            path: "createdBy",
-            select: "firstName lastName userName profileImage",
-          },
-          {
-            path: "tags",
-            select: "firstName lastName userName profileImage",
-          },
-          {
-            path: "refId",
-            populate: {
-              path: "createdBy",
-              select: "firstName lastName userName profileImage",
-            },
-          },
-        ],
-      }
-    );
-    if (!comment) {
-      throw new AppError(
-        "comment not found or has been deleted or frozen",
-        404
-      );
-    }
-    if (comment.refId && comment.onModel === OnModelEnum.post) {
-      const post = comment.refId as any;
-      if (
-        post.availability === AvailabilityEnum.private &&
-        post.createdBy.toString() !== userId.toString()
-      ) {
-        throw new AppError("You are not allowed to view this comment", 403);
-      }
-    }
-    const replies = await this._commentModel.findOne(
-      {
-        refId: commentId,
-        onModel: OnModelEnum.Comment,
-        deletedAt: { $exists: false },
-        isFrozen: false,
-      },
-      {
-        populate: [
-          {
-            path: "createdBy",
-            select: "firstName lastName userName profileImage",
-          },
-          {
-            path: "tags",
-            select: "firstName lastName userName profileImage",
-          },
-        ],
-        sort: { createdAt: -1 },
-      }
-    );
-    const commentWithReplies = {
-      ...comment.toObject(),
-      replies: replies || [],
-      // repliesCount: replies?.length || 0
-    };
-
-    return res.status(200).json({
-      message: "Success",
-      comment: commentWithReplies,
-    });
+  getCommentWithReply = async (req: Request, res: Response) => {
+    const comment = await visibleComment(req.params.commentId, req.params.postId, req.user!);
+    const { skip, limit, page } = pagination(req.query);
+    const filter = { refId: comment._id, onModel: OnModelEnum.Comment, ...await this.authorFilter(req.user!) };
+    const [replies, total] = await Promise.all([commentModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit), commentModel.countDocuments(filter)]);
+    return res.json({ comment: { ...comment.toObject(), replies }, pagination: { page, limit, total } });
   };
 }
 export default new CommentService();

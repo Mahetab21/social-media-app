@@ -1,79 +1,34 @@
-import { Socket } from "socket.io";
-import { HydratedDocument } from "mongoose";
-import { JwtPayload } from "jsonwebtoken";
-import { IUser } from "../../DB/model/user.model";
-import { Server } from "socket.io";
-import { AppError } from "../../utils/classError";
-import { GetSignature, decodedTokenAndFetchUser } from "../../utils/token";
-import { Server as HttpServer } from "http";
-import { socketWithUserId } from "./gateway.interface";
-import { ChatGateway } from "../chat/chat.gatewat";
-
+import { Server } from 'socket.io';
+import { Server as HttpServer } from 'http';
+import { authenticate } from '../../middleware/Authentication';
+import { corsOrigins } from '../../config/environment';
+import { ChatGateway } from '../chat/chat.gatewat';
+import { AppError } from '../../utils/classError';
 const connectionSockets = new Map<string, string[]>();
-let io: Server | undefined = undefined;
-export const initializationIo = (httpServer: HttpServer) => {
-  //initialize io server
-  io = new Server(httpServer, {
-    cors: {
-      origin: "*",
-    },
-  });
-
-  //middleware for socket authentication
-  io.use(async (socket: socketWithUserId, next) => {
+let io: Server | undefined;
+export function initializationIo(httpServer: HttpServer) {
+  io = new Server(httpServer, { cors: { origin: corsOrigins() }, maxHttpBufferSize: 32768 });
+  io.use(async (socket, next) => {
     try {
-      const { authorization } = socket.handshake.auth;
-      const [prefix, token] = authorization?.split(" ") || [];
-      if (!token || !prefix) {
-        return next(new AppError("Invalid Token", 400));
-      }
-      const signature = await GetSignature(prefix);
-      if (!signature) {
-        return next(new AppError("Invalid signature", 400));
-      }
-      const { user, decoded } = await decodedTokenAndFetchUser(
-        token,
-        signature
-      );
-      const socketIds = connectionSockets.get(user?._id.toString()) || [];
-      socketIds.push(socket.id);
-      connectionSockets.set(user._id.toString(), socketIds);
-      socket.data.user = user;
-      next();
-    } catch (error: any) {
-      next(error);
-    }
+      const { user, decoded } = await authenticate(socket.handshake.auth.authorization);
+      socket.data.user = user; socket.data.expiresAt = decoded.exp! * 1000; next();
+    } catch { next(new Error('Invalid or expired session')); }
   });
-
-  const chatGateway: ChatGateway = new ChatGateway();
-  //socket connection
-  io.on("connection", (socket: socketWithUserId) => {
-    console.log(connectionSockets);
-    chatGateway.register(socket, getIo());
-    // remove socket(disconnection)
-    function removeSocket() {
-      let remainingTaps = connectionSockets
-        .get(socket.data.user._id.toString())
-        ?.filter((tab) => {
-          return tab !== socket.id;
-        });
-      if (remainingTaps?.length) {
-        connectionSockets.set(socket.data.user._id.toString(), remainingTaps);
-      } else {
-        connectionSockets.delete(socket.data.user._id.toString());
-      }
-
-      getIo().emit("offline_user", socket.data.user._id.toString());
-    }
-    socket.on("disconnect", () => {
-      removeSocket();
+  const gateway = new ChatGateway();
+  io.on('connection', socket => {
+    const id = String(socket.data.user._id);
+    connectionSockets.set(id, [...(connectionSockets.get(id) || []), socket.id]);
+    socket.join('user:' + id);
+    const timeout = setTimeout(() => socket.disconnect(true), Math.max(0, socket.data.expiresAt - Date.now()));
+    timeout.unref();
+    gateway.register(socket, getIo());
+    socket.on('disconnect', () => {
+      clearTimeout(timeout);
+      const remaining = (connectionSockets.get(id) || []).filter(x => x !== socket.id);
+      if (remaining.length) connectionSockets.set(id, remaining); else connectionSockets.delete(id);
     });
   });
-};
-export const getIo = () => {
-  if (!io) {
-    throw new AppError("Socket.io not initialized", 500);
-  }
   return io;
-};
+}
+export const getIo = () => { if (!io) throw new AppError('Socket server unavailable', 503); return io; };
 export default connectionSockets;

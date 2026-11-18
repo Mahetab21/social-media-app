@@ -1,12 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>   
-    <script src="./index.js"></script>
-</body>
-</html>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Social API socket demo</title></head>
+<body><h1>Social API socket demo</h1><p>Use test accounts. Sign in through the API and paste your authorization header. The token stays in memory.</p>
+<form id="connect"><label>Authorization <input id="token" type="password" autocomplete="off" placeholder="Bearer access_token" required></label><button>Connect</button></form>
+<form id="message"><label>Friend user ID <input id="recipient" required></label><label>Message <input id="content" maxlength="1000" required></label><button>Send</button></form>
+<button id="disconnect" type="button">Disconnect</button><pre id="log" aria-live="polite"></pre>
+<script src="/socket.io/socket.io.js"></script><script src="./index.js"></script></body></html>
