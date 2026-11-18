@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "start:dev": "npm run build && concurrently \"tsc --watch\" \"nodemon dist/index.js\"",
+    "start:dev": "npm run build && concurrently \"tsc --watch\" \"node --watch dist/index.js\"",
     "test": "npm run build && node --test test/*.test.cjs",
     "test:ci": "node scripts/require-test-db.cjs && npm test"
   },
@@ -43,7 +43,6 @@
     "@types/multer": "^2.0.0",
     "@types/nodemailer": "^7.0.1",
     "@types/swagger-ui-express": "^4.1.8",
-    "nodemon": "^3.1.10",
     "typescript": "^5.9.2",
     "concurrently": "^9.2.1",
     "supertest": "^7.0.0",
